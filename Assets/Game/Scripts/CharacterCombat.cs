@@ -101,10 +101,11 @@ namespace TinyRpg
             }
         }
 
-        // --- Entradas del jugador (las clases de rango las redefinen) ---
+        // --- Entradas del jugador (las clases especiales las redefinen) ---
         public virtual void OnPrimaryDown(Vector2 aimDir) { TrySweep(aimDir); }
         public virtual void OnPrimaryUp(Vector2 aimDir) { }
         public virtual void OnSecondaryDown(Vector2 aimDir) { TryStab(aimDir); }
+        public virtual void OnSpecial(Vector2 aimDir) { TryParry(aimDir); }
 
         public bool TrySweep(Vector2 aimDir) => TryAttack(AttackKind.Sweep, aimDir);
         public bool TryStab(Vector2 aimDir) => TryAttack(AttackKind.Stab, aimDir);
@@ -272,7 +273,9 @@ namespace TinyRpg
             EndParry();
         }
 
-        public void GetStaggered(Vector2 push)
+        public void GetStaggered(Vector2 push) => GetStaggered(push, staggerDuration);
+
+        public void GetStaggered(Vector2 push, float duration)
         {
             if (stats.IsDead) return;
             if (actionRoutine != null) { StopCoroutine(actionRoutine); actionRoutine = null; }
@@ -280,15 +283,15 @@ namespace TinyRpg
             // bloqueado nunca acelera el siguiente golpe (relevante para el ciclo
             // largo del lancero, cuyo stagger es mas corto que su recarga total).
             if (IsAttacking)
-                attackRecoveryTimer = Mathf.Max(attackRecoveryTimer, staggerDuration + attackRecovery);
+                attackRecoveryTimer = Mathf.Max(attackRecoveryTimer, duration + attackRecovery);
             IsAttacking = false;
             IsParryActive = false;
-            staggerTimer = staggerDuration;
+            staggerTimer = duration;
             motor.MoveControl = 0f;
             motor.CancelDash();
             motor.AddKnockback(push);
             unitAnimator?.ClearAction();
-            unitAnimator?.PlayAction("Idle", staggerDuration);
+            unitAnimator?.PlayAction("Idle", duration);
             unitAnimator?.FlashHit(new Color(1f, 0.9f, 0.5f, 1f));
         }
 

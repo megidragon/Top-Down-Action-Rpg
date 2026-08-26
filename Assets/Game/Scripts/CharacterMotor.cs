@@ -24,6 +24,7 @@ namespace TinyRpg
         Vector2 moveInput;
         Vector2 knockback;
         Vector2 dashDir;
+        Vector2 externalDrive; // velocidad impuesta desde fuera (embestida del monje)
         float dashTimer;
         float dashCooldownTimer;
 
@@ -66,6 +67,15 @@ namespace TinyRpg
             knockback += impulse;
         }
 
+        /// Impone la velocidad del cuerpo (p.ej. embestida). Anula movimiento y dash
+        /// mientras este activa; limpiar con ClearExternalDrive.
+        public void SetExternalDrive(Vector2 velocity) => externalDrive = velocity;
+        public void ClearExternalDrive() => externalDrive = Vector2.zero;
+
+        /// Posicion fisica real (rb.position): con interpolacion activa, el
+        /// transform puede ir por detras dentro del bucle fijo.
+        public Vector2 BodyPosition => rb != null ? rb.position : (Vector2)transform.position;
+
         public void CancelDash()
         {
             dashTimer = 0f;
@@ -85,7 +95,11 @@ namespace TinyRpg
             }
 
             Vector2 velocity;
-            if (dashTimer > 0f)
+            if (externalDrive.sqrMagnitude > 0.0001f)
+            {
+                velocity = externalDrive;
+            }
+            else if (dashTimer > 0f)
             {
                 dashTimer -= dt;
                 // Curva de dash: arranque fuerte que se desvanece.

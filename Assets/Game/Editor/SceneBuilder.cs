@@ -86,6 +86,8 @@ namespace TinyRpg.EditorTools
                     true, LancerPlayerTuning());
                 var playerArcher = BuildCharacterPrefab("Player_Archer", BuildArcherController(), "Blue",
                     true, ArcherPlayerTuning());
+                var playerMonk = BuildCharacterPrefab("Player_Monk", BuildMonkController(), "Blue",
+                    true, MonkPlayerTuning());
                 var enemyPrefabs = new Dictionary<string, GameObject>
                 {
                     ["Red"] = BuildCharacterPrefab("Enemy_Red", controllers["Red"], "Red", false),
@@ -97,7 +99,7 @@ namespace TinyRpg.EditorTools
                 var world = PopulateWorld(map, enemyPrefabs, sheepPrefab);
 
                 var cameraFollow = BuildCameraAndLight(world.spawnPosition);
-                BuildHudAndManagers(playerWarrior, playerLancer, playerArcher,
+                BuildHudAndManagers(playerWarrior, playerLancer, playerArcher, playerMonk,
                     world.spawnPosition, cameraFollow);
 
                 EditorSceneManager.SaveScene(scene, ScenePath);
@@ -180,14 +182,33 @@ namespace TinyRpg.EditorTools
             return controller;
         }
 
+        static RuntimeAnimatorController BuildMonkController()
+        {
+            string path = $"{OutDir}/Anim/Monk_Blue_Player.controller";
+            AssetDatabase.DeleteAsset(path);
+            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+            var sm = controller.layers[0].stateMachine;
+            var idle = AddState(sm, "Idle", FindClip("Monk_Idle_Blue"), loop: true);
+            AddState(sm, "Run", FindClip("Monk_Run_Blue"), loop: true);
+            // El monje no tiene animacion de ataque: la patada usa Idle + VFX.
+            AddState(sm, "Attack1", FindClip("Monk_Idle_Blue"), loop: false);
+            AddState(sm, "Attack2", FindClip("Monk_Idle_Blue"), loop: false);
+            AddState(sm, "Guard", FindClip("Monk_Idle_Blue"), loop: true);
+            AddState(sm, "Heal", FindClip("Monk_Heal_Blue"), loop: false);
+            sm.defaultState = idle;
+            return controller;
+        }
+
         /// Ajustes por clase aplicados sobre el prefab base del personaje.
         class UnitTuning
         {
             public string idlePngPath;
             public bool ranged;
+            public bool monk;
             public float maxHealth = 150f;
             public float spriteYOffset = 0.62f;
             public float sweepRange = 1.8f;
+            public float sweepKnockback = 5f;
             public float sweepDamage = 20f;
             public float stabRange = 3.0f;
             public float stabDamage = 30f;
@@ -206,9 +227,25 @@ namespace TinyRpg.EditorTools
         {
             idlePngPath = TS + "Units/Blue Units/Archer/Archer_Idle.png",
             ranged = true,
-            maxHealth = 100f,
+            maxHealth = 75f,
             attackDuration = 0.55f,
             attackRecovery = 0.325f,
+        };
+
+        // Monje: patada corta con dano de guerrero pero empujon enorme; embestida
+        // aturdidora y curacion en area en vez de parry. Sus parametros especificos
+        // viven como defaults serializados en MonkCombat.
+        static UnitTuning MonkPlayerTuning() => new UnitTuning
+        {
+            idlePngPath = TS + "Units/Blue Units/Monk/Idle.png",
+            monk = true,
+            maxHealth = 125f,
+            sweepRange = 1.4f,
+            sweepDamage = 20f,     // igual que el guerrero
+            sweepKnockback = 12f,  // pero empuja mucho mas lejos
+            attackDuration = 0.35f,
+            hitDelay = 0.14f,
+            attackRecovery = 0.1f,
         };
 
         // Lancero: menos vida (75% del guerrero), mas alcance y algo mas de dano,
@@ -576,11 +613,14 @@ namespace TinyRpg.EditorTools
                 root.AddComponent<CharacterMotor>();
                 CharacterCombat combat = tuning != null && tuning.ranged
                     ? root.AddComponent<ArcherCombat>()
-                    : root.AddComponent<CharacterCombat>();
+                    : tuning != null && tuning.monk
+                        ? root.AddComponent<MonkCombat>()
+                        : root.AddComponent<CharacterCombat>();
                 combat.isPlayer = isPlayer;
                 if (tuning != null)
                 {
                     combat.sweepRange = tuning.sweepRange;
+                    combat.sweepKnockback = tuning.sweepKnockback;
                     combat.sweepDamage = tuning.sweepDamage;
                     combat.stabRange = tuning.stabRange;
                     combat.stabDamage = tuning.stabDamage;
@@ -1139,7 +1179,8 @@ namespace TinyRpg.EditorTools
         }
 
         static void BuildHudAndManagers(GameObject playerWarrior, GameObject playerLancer,
-            GameObject playerArcher, Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
+            GameObject playerArcher, GameObject playerMonk, Vector2 spawnPosition,
+            SmoothCameraFollow cameraFollow)
         {
             // EventSystem para que los botones de UI funcionen con el Input System.
             var eventSystemGo = new GameObject("EventSystem");
@@ -1173,7 +1214,7 @@ namespace TinyRpg.EditorTools
 
             // Texto de controles.
             var controls = MakeText(canvasGo.transform, "Controls", font, 22,
-                "WASD mover  |  Shift dash  |  Click Izq. barrido  |  Click Der. estocada  |  Espacio parry  |  1-4 objetos  |  E comprar");
+                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. ataque especial  |  Espacio parry o curar  |  1-4 objetos  |  E comprar");
             var controlsRt = controls.rectTransform;
             controlsRt.anchorMin = new Vector2(0.5f, 1f);
             controlsRt.anchorMax = new Vector2(0.5f, 1f);
@@ -1201,14 +1242,13 @@ namespace TinyRpg.EditorTools
             manager.messageText = message;
 
             BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer, playerArcher,
-                spawnPosition, cameraFollow);
+                playerMonk, spawnPosition, cameraFollow);
         }
 
-        /// Pantalla de seleccion de clase: Guerrero, Lancero y Arquero jugables;
-        /// Monje en silueta, bloqueado de momento.
+        /// Pantalla de seleccion de clase: las cuatro clases jugables.
         static void BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
-            GameObject playerLancer, GameObject playerArcher, Vector2 spawnPosition,
-            SmoothCameraFollow cameraFollow)
+            GameObject playerLancer, GameObject playerArcher, GameObject playerMonk,
+            Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
         {
             // Panel a pantalla completa (ultimo hijo del canvas: se dibuja encima de todo).
             var panelGo = new GameObject("ClassSelectPanel");
@@ -1238,6 +1278,7 @@ namespace TinyRpg.EditorTools
             screen.warriorPrefab = playerWarrior;
             screen.lancerPrefab = playerLancer;
             screen.archerPrefab = playerArcher;
+            screen.monkPrefab = playerMonk;
             screen.spawnPosition = spawnPosition;
             screen.cameraFollow = cameraFollow;
 
@@ -1247,8 +1288,8 @@ namespace TinyRpg.EditorTools
                 TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
             MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Tecla 3",
                 TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, 2);
-            MakeClassCard(panelGo.transform, font, 450f, "Monje", "Bloqueado",
-                TS + "Units/Blue Units/Monk/Idle.png", screen, -1);
+            MakeClassCard(panelGo.transform, font, 450f, "Monje", "Tecla 4",
+                TS + "Units/Blue Units/Monk/Idle.png", screen, 3);
         }
 
         static void MakeClassCard(Transform parent, Font font, float x, string title,

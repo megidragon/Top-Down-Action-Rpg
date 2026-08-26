@@ -84,7 +84,7 @@ namespace TinyRpg
                 combat.OnSecondaryDown(AimDirection);
 
             if (keyboard.spaceKey.wasPressedThisFrame)
-                combat.TryParry(AimDirection);
+                combat.OnSpecial(AimDirection); // parry (o curacion, en el monje)
 
             // --- Inventario: teclas 1-4 usan el slot correspondiente ---
             if (inventory != null)
