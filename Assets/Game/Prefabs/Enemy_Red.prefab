@@ -618,6 +618,7 @@ MonoBehaviour:
   parryDuration: 0.35
   parryCooldown: 0.5
   parryHalfAngle: 30
+  parriedKnockback: 6.5
   isPlayer: 0
 --- !u!114 &8522635584615311421
 MonoBehaviour:

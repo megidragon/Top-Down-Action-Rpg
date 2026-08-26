@@ -34,6 +34,11 @@ namespace TinyRpg.EditorTools
 
             if (File.Exists(BuildRequest))
             {
+                // Importar y compilar cualquier script cambiado en disco ANTES de
+                // construir; si dispara una compilacion, reintentar en el siguiente
+                // tick ya con los ensamblados frescos.
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
                 File.Delete(BuildRequest);
                 try
                 {
@@ -49,6 +54,8 @@ namespace TinyRpg.EditorTools
 
             if (File.Exists(VerifyRequest))
             {
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
                 // VerifyCaptureRunner leera y borrara la senal al arrancar el Play.
                 var scenePath = SceneBuilder2.ScenePathPublic;
                 if (!File.Exists(scenePath))

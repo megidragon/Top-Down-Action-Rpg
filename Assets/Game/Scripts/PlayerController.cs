@@ -15,6 +15,7 @@ namespace TinyRpg
         CharacterCombat combat;
         CharacterStats stats;
         UnitAnimator unitAnimator;
+        Inventory inventory;
         Camera cam;
 
         public Vector2 AimDirection { get; private set; } = Vector2.right;
@@ -25,6 +26,7 @@ namespace TinyRpg
             combat = GetComponent<CharacterCombat>();
             stats = GetComponent<CharacterStats>();
             unitAnimator = GetComponent<UnitAnimator>();
+            inventory = GetComponent<Inventory>();
             combat.isPlayer = true;
             stats.team = 0;
             GameManager.RegisterPlayer(this);
@@ -80,6 +82,15 @@ namespace TinyRpg
 
             if (keyboard.spaceKey.wasPressedThisFrame)
                 combat.TryParry(AimDirection);
+
+            // --- Inventario: teclas 1-4 usan el slot correspondiente ---
+            if (inventory != null)
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame) inventory.UseSlot(0);
+                if (keyboard.digit2Key.wasPressedThisFrame) inventory.UseSlot(1);
+                if (keyboard.digit3Key.wasPressedThisFrame) inventory.UseSlot(2);
+                if (keyboard.digit4Key.wasPressedThisFrame) inventory.UseSlot(3);
+            }
         }
     }
 }

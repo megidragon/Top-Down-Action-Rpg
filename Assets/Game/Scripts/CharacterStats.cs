@@ -51,6 +51,13 @@ namespace TinyRpg
             return true;
         }
 
+        public void Heal(float amount)
+        {
+            if (IsDead || amount <= 0f) return;
+            Health = Mathf.Min(maxHealth, Health + amount);
+            HealthChanged?.Invoke(Health, maxHealth);
+        }
+
         public void TakeDamage(float amount, Vector2 hitDirection)
         {
             if (IsDead) return;

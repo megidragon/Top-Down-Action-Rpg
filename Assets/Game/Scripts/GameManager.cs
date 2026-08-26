@@ -46,6 +46,8 @@ namespace TinyRpg
         void OnEnemyDied(GameObject enemy)
         {
             enemiesAlive--;
+            // Cada enemigo suelta una moneda al morir.
+            ItemPickup.Spawn(ItemType.Coin, (Vector2)enemy.transform.position + Vector2.up * 0.2f);
             StartCoroutine(FadeOutAndDestroy(enemy));
             if (enemiesAlive <= 0 && !gameOver)
             {

@@ -49,6 +49,9 @@ namespace TinyRpg.EditorTools
         }
 
         static System.Random rng;
+        static RuntimeAnimatorController pawnController;
+        static Sprite coinIconSprite;
+        static Sprite potionIconSprite;
 
         // Celda deseada de la aldea del jugador. MapValidation valida la
         // conectividad del mapa desde este mismo punto.
@@ -64,6 +67,9 @@ namespace TinyRpg.EditorTools
 
                 var controllers = BuildWarriorControllers();
                 var sheepController = BuildSheepController();
+                pawnController = BuildPawnController();
+                coinIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Coins/Coins_Medium_Gold.png");
+                potionIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Red.png");
                 var map = MapGenerator.Generate();
 
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -129,6 +135,37 @@ namespace TinyRpg.EditorTools
                 result[color] = controller;
             }
             return result;
+        }
+
+        static RuntimeAnimatorController BuildPawnController()
+        {
+            string path = $"{OutDir}/Anim/Pawn_Vendor.controller";
+            AssetDatabase.DeleteAsset(path);
+            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+            var sm = controller.layers[0].stateMachine;
+            var idle = AddState(sm, "Idle", FindClip("Pawn_Idle_Blue"), loop: true);
+            sm.defaultState = idle;
+            return controller;
+        }
+
+        /// Carga un icono de Tiny Fantasy Icons asegurando importacion como Sprite
+        /// con 256 ppu (los PNG son de 256x256 -> 1 unidad de mundo).
+        static Sprite LoadIcon(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning("[SceneBuilder] Icono no encontrado: " + path);
+                return null;
+            }
+            if (importer.textureType != TextureImporterType.Sprite ||
+                !Mathf.Approximately(importer.spritePixelsPerUnit, 256f))
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spritePixelsPerUnit = 256f;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static RuntimeAnimatorController BuildSheepController()
@@ -468,8 +505,15 @@ namespace TinyRpg.EditorTools
 
                 BuildWorldBars(root);
 
-                if (isPlayer) root.AddComponent<PlayerController>();
-                else root.AddComponent<EnemyAI>();
+                if (isPlayer)
+                {
+                    root.AddComponent<Inventory>();
+                    root.AddComponent<PlayerController>();
+                }
+                else
+                {
+                    root.AddComponent<EnemyAI>();
+                }
 
                 string prefabPath = $"{OutDir}/Prefabs/{name}.prefab";
                 var prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
@@ -527,6 +571,95 @@ namespace TinyRpg.EditorTools
             fillSr.sortingOrder = sortingOrder + 1;
 
             return anchor.transform;
+        }
+
+        /// NPC vendedor: Blue Pawn con burbuja de oferta ([pocion] 1 [moneda] + hint E).
+        static void BuildVendor(Vector2 position, Transform parent)
+        {
+            var idleSprite = LoadFirstSprite(TS + "Pawn and Resources/Pawn/Blue Pawn/Pawn_Idle.png");
+
+            var root = new GameObject("Vendor_BluePawn");
+            root.transform.SetParent(parent, false);
+            root.transform.position = position;
+
+            var col = root.AddComponent<CircleCollider2D>();
+            col.radius = 0.28f;
+            col.offset = new Vector2(0f, 0.3f);
+
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(root.transform, false);
+            spriteGo.transform.localPosition = new Vector3(0f, 0.62f, 0f);
+            var sr = spriteGo.AddComponent<SpriteRenderer>();
+            sr.sprite = idleSprite;
+            var animator = spriteGo.AddComponent<Animator>();
+            animator.runtimeAnimatorController = pawnController;
+
+            var sorter = root.AddComponent<YSorter>();
+            sorter.renderers = new[] { sr };
+            sorter.isStatic = true;
+
+            // --- Burbuja de oferta ---
+            int order = 31000;
+            var bubble = new GameObject("Bubble");
+            bubble.transform.SetParent(root.transform, false);
+            bubble.transform.localPosition = new Vector3(0f, 1.8f, 0f);
+
+            var bg = new GameObject("Background");
+            bg.transform.SetParent(bubble.transform, false);
+            bg.transform.localScale = new Vector3(13.5f, 5.8f, 1f); // sprite blanco de 8px -> ~1.7 x 0.72 u
+            var bgSr = bg.AddComponent<SpriteRenderer>();
+            bgSr.sprite = GetWhiteSprite();
+            bgSr.color = new Color(0.16f, 0.12f, 0.09f, 0.88f);
+            bgSr.sortingOrder = order;
+
+            var potionGo = new GameObject("PotionIcon");
+            potionGo.transform.SetParent(bubble.transform, false);
+            potionGo.transform.localPosition = new Vector3(-0.5f, 0.02f, 0f);
+            potionGo.transform.localScale = new Vector3(0.55f, 0.55f, 1f);
+            var potionSr = potionGo.AddComponent<SpriteRenderer>();
+            potionSr.sprite = potionIconSprite;
+            potionSr.sortingOrder = order + 2;
+
+            var priceText = MakeWorldText(bubble.transform, "1", new Vector3(0.08f, 0f, 0f),
+                0.058f, order + 2, Color.white);
+
+            var coinGo = new GameObject("CoinIcon");
+            coinGo.transform.SetParent(bubble.transform, false);
+            coinGo.transform.localPosition = new Vector3(0.48f, 0.02f, 0f);
+            coinGo.transform.localScale = new Vector3(0.42f, 0.42f, 1f);
+            var coinSr = coinGo.AddComponent<SpriteRenderer>();
+            coinSr.sprite = coinIconSprite;
+            coinSr.sortingOrder = order + 2;
+
+            MakeWorldText(bubble.transform, "[E] comprar", new Vector3(0f, -0.55f, 0f),
+                0.042f, order + 2, new Color(1f, 0.95f, 0.75f, 1f));
+
+            var vendor = root.AddComponent<VendorNpc>();
+            vendor.itemSold = ItemType.HealthPotion;
+            vendor.priceInCoins = 1;
+            vendor.bubble = bubble;
+            vendor.coinIconRenderer = coinSr;
+            vendor.spriteRenderer = sr;
+        }
+
+        static TextMesh MakeWorldText(Transform parent, string content, Vector3 localPos,
+            float characterSize, int sortingOrder, Color color)
+        {
+            var go = new GameObject("Text");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            var tm = go.AddComponent<TextMesh>();
+            tm.text = content;
+            tm.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            tm.fontSize = 64;
+            tm.characterSize = characterSize;
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.alignment = TextAlignment.Center;
+            tm.color = color;
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sharedMaterial = tm.font.material;
+            mr.sortingOrder = sortingOrder;
+            return tm;
         }
 
         static GameObject BuildSheepPrefab(RuntimeAnimatorController controller)
@@ -606,6 +739,10 @@ namespace TinyRpg.EditorTools
                 spawnCell + new Vector2Int(6, 3), 2, 1);
 
             refs.playerInstance = Spawn(playerPrefab, spawn, unitsParent);
+
+            // Vendedor neutral (Blue Pawn) frente al castillo.
+            BuildVendor(CellCenter(spawnCell + new Vector2Int(1, 2)), unitsParent);
+            MarkArea(occupied, spawnCell + new Vector2Int(1, 2), 1);
 
             foreach (var offset in new[] { new Vector2Int(-3, -2), new Vector2Int(2, -3),
                 new Vector2Int(5, 0), new Vector2Int(-2, 2) })
@@ -881,6 +1018,12 @@ namespace TinyRpg.EditorTools
             light.intensity = 1f;
             light.color = Color.white;
 
+            // Iconos de objetos para el inventario, dropeos y vendedor.
+            var itemsGo = new GameObject("ItemLibrary");
+            var itemLib = itemsGo.AddComponent<ItemLibrary>();
+            itemLib.coinIcon = coinIconSprite;
+            itemLib.potionIcon = potionIconSprite;
+
             // Material para los VFX de los ataques.
             var vfxGo = new GameObject("VfxLibrary");
             var lib = vfxGo.AddComponent<VfxLibrary>();
@@ -919,7 +1062,7 @@ namespace TinyRpg.EditorTools
 
             // Texto de controles.
             var controls = MakeText(canvasGo.transform, "Controls", font, 22,
-                "WASD mover   |   Shift dash   |   Click Izq. barrido   |   Click Der. estocada   |   Espacio parry");
+                "WASD mover  |  Shift dash  |  Click Izq. barrido  |  Click Der. estocada  |  Espacio parry  |  1-4 objetos  |  E comprar");
             var controlsRt = controls.rectTransform;
             controlsRt.anchorMin = new Vector2(0.5f, 1f);
             controlsRt.anchorMax = new Vector2(0.5f, 1f);
@@ -940,9 +1083,81 @@ namespace TinyRpg.EditorTools
             message.alignment = TextAnchor.MiddleCenter;
             message.color = new Color(1f, 0.95f, 0.8f, 1f);
 
+            BuildInventoryHud(canvasGo.transform, font);
+
             var managerGo = new GameObject("GameManager");
             var manager = managerGo.AddComponent<GameManager>();
             manager.messageText = message;
+        }
+
+        /// Barra de inventario: 4 slots en la parte inferior central (teclas 1-4).
+        static void BuildInventoryHud(Transform canvas, Font font)
+        {
+            var hudGo = new GameObject("InventoryHud");
+            hudGo.transform.SetParent(canvas, false);
+            // El contenedor necesita un RectTransform estirado a todo el canvas;
+            // sin el, las anclas de los slots se resuelven contra el centro de la
+            // pantalla y la barra aparece en medio en vez de abajo.
+            var hudRt = hudGo.AddComponent<RectTransform>();
+            hudRt.anchorMin = Vector2.zero;
+            hudRt.anchorMax = Vector2.one;
+            hudRt.offsetMin = Vector2.zero;
+            hudRt.offsetMax = Vector2.zero;
+            var hud = hudGo.AddComponent<InventoryHud>();
+            hud.slotWidgets = new InventoryHud.SlotWidgets[Inventory.SlotCount];
+
+            var white = GetWhiteSprite();
+            const float slotSize = 88f;
+            const float spacing = 12f;
+
+            for (int i = 0; i < Inventory.SlotCount; i++)
+            {
+                float x = (i - (Inventory.SlotCount - 1) * 0.5f) * (slotSize + spacing);
+
+                var slotGo = new GameObject("Slot" + (i + 1));
+                slotGo.transform.SetParent(hudGo.transform, false);
+                var bg = slotGo.AddComponent<Image>();
+                bg.sprite = white;
+                bg.color = new Color(0.11f, 0.09f, 0.07f, 0.82f);
+                var rt = bg.rectTransform;
+                rt.anchorMin = new Vector2(0.5f, 0f);
+                rt.anchorMax = new Vector2(0.5f, 0f);
+                rt.pivot = new Vector2(0.5f, 0f);
+                rt.anchoredPosition = new Vector2(x, 26f);
+                rt.sizeDelta = new Vector2(slotSize, slotSize);
+
+                var iconGo = new GameObject("Icon");
+                iconGo.transform.SetParent(slotGo.transform, false);
+                var icon = iconGo.AddComponent<Image>();
+                icon.raycastTarget = false;
+                icon.enabled = false;
+                var irt = icon.rectTransform;
+                irt.anchorMin = new Vector2(0.5f, 0.5f);
+                irt.anchorMax = new Vector2(0.5f, 0.5f);
+                irt.anchoredPosition = Vector2.zero;
+                irt.sizeDelta = new Vector2(64f, 64f);
+
+                var keyText = MakeText(slotGo.transform, "Key", font, 20, (i + 1).ToString());
+                keyText.color = new Color(1f, 0.9f, 0.6f, 0.95f);
+                var krt = keyText.rectTransform;
+                krt.anchorMin = new Vector2(0f, 1f);
+                krt.anchorMax = new Vector2(0f, 1f);
+                krt.pivot = new Vector2(0f, 1f);
+                krt.anchoredPosition = new Vector2(7f, -4f);
+                krt.sizeDelta = new Vector2(30f, 26f);
+                keyText.alignment = TextAnchor.UpperLeft;
+
+                var countText = MakeText(slotGo.transform, "Count", font, 24, "");
+                var crt = countText.rectTransform;
+                crt.anchorMin = new Vector2(1f, 0f);
+                crt.anchorMax = new Vector2(1f, 0f);
+                crt.pivot = new Vector2(1f, 0f);
+                crt.anchoredPosition = new Vector2(-7f, 4f);
+                crt.sizeDelta = new Vector2(50f, 28f);
+                countText.alignment = TextAnchor.LowerRight;
+
+                hud.slotWidgets[i] = new InventoryHud.SlotWidgets { icon = icon, countText = countText };
+            }
         }
 
         static Image BuildHudBar(Transform parent, string name, Sprite baseSprite, Sprite fillSprite,
