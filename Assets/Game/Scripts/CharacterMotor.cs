@@ -1,0 +1,105 @@
+using System;
+using UnityEngine;
+
+namespace TinyRpg
+{
+    /// Movimiento fisico del personaje: WASD (o direccion de IA), dash y knockback.
+    /// La velocidad diagonal se mantiene igual que la ortogonal (input normalizado).
+    [RequireComponent(typeof(Rigidbody2D))]
+    [RequireComponent(typeof(CharacterStats))]
+    public class CharacterMotor : MonoBehaviour
+    {
+        public float moveSpeed = 4.6f;
+        public float dashSpeed = 15f;
+        public float dashDuration = 0.22f;
+        public float dashCooldown = 0.35f;
+        public float dashEnergyCost = 25f;
+        public float knockbackDecay = 14f; // unidades/s^2 de frenado del empuje
+
+        [NonSerialized] public Vector2 AimDirection = Vector2.right; // hacia el raton (jugador) o el objetivo (IA)
+        [NonSerialized] public float MoveControl = 1f;               // el combate lo reduce durante ataques/parry
+
+        Rigidbody2D rb;
+        CharacterStats stats;
+        Vector2 moveInput;
+        Vector2 knockback;
+        Vector2 dashDir;
+        float dashTimer;
+        float dashCooldownTimer;
+
+        public bool IsDashing => dashTimer > 0f;
+        public Vector2 MoveInput => moveInput;
+        public float CurrentSpeed => rb != null ? rb.linearVelocity.magnitude : 0f;
+        public event Action DashStarted;
+
+        void Awake()
+        {
+            rb = GetComponent<Rigidbody2D>();
+            stats = GetComponent<CharacterStats>();
+            rb.gravityScale = 0f;
+            rb.freezeRotation = true;
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        }
+
+        public void SetMoveInput(Vector2 input)
+        {
+            moveInput = Vector2.ClampMagnitude(input, 1f);
+        }
+
+        public bool TryDash()
+        {
+            if (stats.IsDead || IsDashing || dashCooldownTimer > 0f) return false;
+            Vector2 dir = moveInput.sqrMagnitude > 0.01f ? moveInput.normalized : AimDirection;
+            if (dir.sqrMagnitude < 0.01f) return false;
+            if (!stats.TrySpendEnergy(dashEnergyCost)) return false;
+
+            dashDir = dir.normalized;
+            dashTimer = dashDuration;
+            dashCooldownTimer = dashCooldown + dashDuration;
+            DashStarted?.Invoke();
+            return true;
+        }
+
+        public void AddKnockback(Vector2 impulse)
+        {
+            knockback += impulse;
+        }
+
+        public void CancelDash()
+        {
+            dashTimer = 0f;
+        }
+
+        void FixedUpdate()
+        {
+            float dt = Time.fixedDeltaTime;
+            if (dashCooldownTimer > 0f) dashCooldownTimer -= dt;
+
+            if (stats.IsDead)
+            {
+                // El cadaver conserva el empuje del golpe letal hasta frenarse.
+                rb.linearVelocity = knockback;
+                knockback = Vector2.MoveTowards(knockback, Vector2.zero, knockbackDecay * dt);
+                return;
+            }
+
+            Vector2 velocity;
+            if (dashTimer > 0f)
+            {
+                dashTimer -= dt;
+                // Curva de dash: arranque fuerte que se desvanece.
+                float t = Mathf.Clamp01(dashTimer / dashDuration);
+                velocity = dashDir * (dashSpeed * (0.45f + 0.55f * t));
+            }
+            else
+            {
+                velocity = moveInput * (moveSpeed * Mathf.Clamp01(MoveControl));
+            }
+
+            velocity += knockback;
+            knockback = Vector2.MoveTowards(knockback, Vector2.zero, knockbackDecay * dt);
+            rb.linearVelocity = velocity;
+        }
+    }
+}
