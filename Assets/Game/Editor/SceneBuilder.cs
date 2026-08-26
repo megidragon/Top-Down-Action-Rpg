@@ -84,6 +84,8 @@ namespace TinyRpg.EditorTools
                     true, WarriorPlayerTuning());
                 var playerLancer = BuildCharacterPrefab("Player_Lancer", lancerController, "Blue",
                     true, LancerPlayerTuning());
+                var playerArcher = BuildCharacterPrefab("Player_Archer", BuildArcherController(), "Blue",
+                    true, ArcherPlayerTuning());
                 var enemyPrefabs = new Dictionary<string, GameObject>
                 {
                     ["Red"] = BuildCharacterPrefab("Enemy_Red", controllers["Red"], "Red", false),
@@ -95,7 +97,8 @@ namespace TinyRpg.EditorTools
                 var world = PopulateWorld(map, enemyPrefabs, sheepPrefab);
 
                 var cameraFollow = BuildCameraAndLight(world.spawnPosition);
-                BuildHudAndManagers(playerWarrior, playerLancer, world.spawnPosition, cameraFollow);
+                BuildHudAndManagers(playerWarrior, playerLancer, playerArcher,
+                    world.spawnPosition, cameraFollow);
 
                 EditorSceneManager.SaveScene(scene, ScenePath);
                 EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -160,10 +163,28 @@ namespace TinyRpg.EditorTools
             return controller;
         }
 
+        static RuntimeAnimatorController BuildArcherController()
+        {
+            string path = $"{OutDir}/Anim/Archer_Blue_Player.controller";
+            AssetDatabase.DeleteAsset(path);
+            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+            var sm = controller.layers[0].stateMachine;
+            var idle = AddState(sm, "Idle", FindClip("Archer_Idle_Blue"), loop: true);
+            AddState(sm, "Run", FindClip("Archer_Run_Blue"), loop: true);
+            AddState(sm, "Attack1", FindClip("Archer_Shoot_Blue"), loop: false);
+            AddState(sm, "Attack2", FindClip("Archer_Shoot_Blue"), loop: false);
+            // El arquero no tiene animacion de guardia: mantiene Idle y el arco
+            // azul del parry pone el visual.
+            AddState(sm, "Guard", FindClip("Archer_Idle_Blue"), loop: true);
+            sm.defaultState = idle;
+            return controller;
+        }
+
         /// Ajustes por clase aplicados sobre el prefab base del personaje.
         class UnitTuning
         {
             public string idlePngPath;
+            public bool ranged;
             public float maxHealth = 150f;
             public float spriteYOffset = 0.62f;
             public float sweepRange = 1.8f;
@@ -177,6 +198,18 @@ namespace TinyRpg.EditorTools
 
         // Guerrero: linea base. Ciclo de ataque = 0.4 + 0.1 = 0.5 s.
         static UnitTuning WarriorPlayerTuning() => new UnitTuning();
+
+        // Arquero: fragil pero de rango. La lluvia de flecha usa el ciclo del
+        // lancero (0.55 + 0.325 = 0.875 s); el resto de parametros de rango viven
+        // como defaults serializados en ArcherCombat.
+        static UnitTuning ArcherPlayerTuning() => new UnitTuning
+        {
+            idlePngPath = TS + "Units/Blue Units/Archer/Archer_Idle.png",
+            ranged = true,
+            maxHealth = 100f,
+            attackDuration = 0.55f,
+            attackRecovery = 0.325f,
+        };
 
         // Lancero: menos vida (75% del guerrero), mas alcance y algo mas de dano,
         // pero recuperacion al 175% del ciclo del guerrero (0.875 s por golpe).
@@ -541,7 +574,9 @@ namespace TinyRpg.EditorTools
                 stats.maxHealth = tuning != null ? tuning.maxHealth : (isPlayer ? 150f : 100f);
 
                 root.AddComponent<CharacterMotor>();
-                var combat = root.AddComponent<CharacterCombat>();
+                CharacterCombat combat = tuning != null && tuning.ranged
+                    ? root.AddComponent<ArcherCombat>()
+                    : root.AddComponent<CharacterCombat>();
                 combat.isPlayer = isPlayer;
                 if (tuning != null)
                 {
@@ -1098,12 +1133,13 @@ namespace TinyRpg.EditorTools
                 AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.render-pipelines.universal/Runtime/Materials/Sprite-Unlit-Default.mat");
             if (lib.vfxMaterial == null)
                 lib.vfxMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+            lib.arrowSprite = LoadFirstSprite(TS + "Units/Extra/Arrow/Arrow.png");
 
             return follow;
         }
 
         static void BuildHudAndManagers(GameObject playerWarrior, GameObject playerLancer,
-            Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
+            GameObject playerArcher, Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
         {
             // EventSystem para que los botones de UI funcionen con el Input System.
             var eventSystemGo = new GameObject("EventSystem");
@@ -1164,14 +1200,15 @@ namespace TinyRpg.EditorTools
             var manager = managerGo.AddComponent<GameManager>();
             manager.messageText = message;
 
-            BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer,
+            BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer, playerArcher,
                 spawnPosition, cameraFollow);
         }
 
-        /// Pantalla de seleccion de clase: Guerrero y Lancero jugables; Arquero y
-        /// Monje en silueta, bloqueados de momento.
+        /// Pantalla de seleccion de clase: Guerrero, Lancero y Arquero jugables;
+        /// Monje en silueta, bloqueado de momento.
         static void BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
-            GameObject playerLancer, Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
+            GameObject playerLancer, GameObject playerArcher, Vector2 spawnPosition,
+            SmoothCameraFollow cameraFollow)
         {
             // Panel a pantalla completa (ultimo hijo del canvas: se dibuja encima de todo).
             var panelGo = new GameObject("ClassSelectPanel");
@@ -1200,6 +1237,7 @@ namespace TinyRpg.EditorTools
             screen.panel = panelGo;
             screen.warriorPrefab = playerWarrior;
             screen.lancerPrefab = playerLancer;
+            screen.archerPrefab = playerArcher;
             screen.spawnPosition = spawnPosition;
             screen.cameraFollow = cameraFollow;
 
@@ -1207,8 +1245,8 @@ namespace TinyRpg.EditorTools
                 TS + "Units/Blue Units/Warrior/Warrior_Idle.png", screen, 0);
             MakeClassCard(panelGo.transform, font, -150f, "Lancero", "Tecla 2",
                 TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
-            MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Bloqueado",
-                TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, -1);
+            MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Tecla 3",
+                TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, 2);
             MakeClassCard(panelGo.transform, font, 450f, "Monje", "Bloqueado",
                 TS + "Units/Blue Units/Monk/Idle.png", screen, -1);
         }

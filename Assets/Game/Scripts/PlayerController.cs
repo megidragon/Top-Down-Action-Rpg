@@ -63,22 +63,25 @@ namespace TinyRpg
             if (cam != null)
             {
                 Vector3 mouseWorld = cam.ScreenToWorldPoint(mouse.position.ReadValue());
+                combat.AimPoint = mouseWorld;
                 Vector2 aim = (Vector2)mouseWorld - combat.AttackOrigin;
                 if (aim.sqrMagnitude > 0.001f) AimDirection = aim.normalized;
             }
             motor.AimDirection = AimDirection;
             if (!combat.IsBusy) unitAnimator?.SetFacing(AimDirection.x);
 
-            // --- Acciones ---
+            // --- Acciones (cada clase define que hace cada click) ---
             if ((keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame)
                 && !combat.IsBusy)
                 motor.TryDash();
 
             if (mouse.leftButton.wasPressedThisFrame)
-                combat.TrySweep(AimDirection);
+                combat.OnPrimaryDown(AimDirection);
+            if (mouse.leftButton.wasReleasedThisFrame)
+                combat.OnPrimaryUp(AimDirection);
 
             if (mouse.rightButton.wasPressedThisFrame)
-                combat.TryStab(AimDirection);
+                combat.OnSecondaryDown(AimDirection);
 
             if (keyboard.spaceKey.wasPressedThisFrame)
                 combat.TryParry(AimDirection);

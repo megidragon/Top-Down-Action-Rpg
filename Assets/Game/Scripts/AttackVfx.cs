@@ -61,6 +61,55 @@ namespace TinyRpg
             Create(origin, verts, tris, colors, color, sortingOrder, lifetime);
         }
 
+        /// Anillo persistente (marcador de area). El llamador lo posiciona y destruye.
+        public static GameObject CreateRing(float radius, Color color, int sortingOrder)
+        {
+            const int segments = 44;
+            float inner = Mathf.Max(0.02f, radius - 0.09f);
+            var verts = new Vector3[(segments + 1) * 2];
+            var colors = new Color[verts.Length];
+            var tris = new int[segments * 6];
+            for (int i = 0; i <= segments; i++)
+            {
+                float a = Mathf.PI * 2f * i / segments;
+                Vector3 dir = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f);
+                verts[i * 2] = dir * inner;
+                verts[i * 2 + 1] = dir * radius;
+                colors[i * 2] = color;
+                colors[i * 2 + 1] = color;
+            }
+            for (int i = 0; i < segments; i++)
+            {
+                int v = i * 2;
+                tris[i * 6] = v; tris[i * 6 + 1] = v + 3; tris[i * 6 + 2] = v + 1;
+                tris[i * 6 + 3] = v; tris[i * 6 + 4] = v + 2; tris[i * 6 + 5] = v + 3;
+            }
+
+            var go = new GameObject("AreaRing");
+            var mesh = new Mesh { vertices = verts, triangles = tris, colors = colors };
+            mesh.RecalculateBounds();
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = SharedMaterial != null ? SharedMaterial : GetFallbackMaterial();
+            renderer.sortingOrder = sortingOrder;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            go.AddComponent<MeshCleanup>(); // la malla generada se libera con el objeto
+            return go;
+        }
+
+        /// Libera la malla generada en runtime cuando el anillo se destruye
+        /// (las Mesh no las recolecta el GC de Unity por si solas).
+        class MeshCleanup : MonoBehaviour
+        {
+            void OnDestroy()
+            {
+                var filter = GetComponent<MeshFilter>();
+                if (filter != null && filter.sharedMesh != null)
+                    Destroy(filter.sharedMesh);
+            }
+        }
+
         public static void SpawnBlockSpark(Vector2 position, int sortingOrder)
         {
             SpawnArc(position, Vector2.up, 0.55f, 180f, new Color(0.75f, 0.92f, 1f, 0.85f), sortingOrder, 0.18f);

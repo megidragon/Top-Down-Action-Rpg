@@ -14,6 +14,7 @@ namespace TinyRpg
         public GameObject panel;
         public GameObject warriorPrefab;
         public GameObject lancerPrefab;
+        public GameObject archerPrefab;
         public Vector2 spawnPosition;
         public SmoothCameraFollow cameraFollow;
 
@@ -43,13 +44,15 @@ namespace TinyRpg
             if (keyboard == null) return;
             if (keyboard.digit1Key.wasPressedThisFrame) Choose(0);
             else if (keyboard.digit2Key.wasPressedThisFrame) Choose(1);
+            else if (keyboard.digit3Key.wasPressedThisFrame) Choose(2);
         }
 
-        /// 0 = Guerrero, 1 = Lancero.
+        /// 0 = Guerrero, 1 = Lancero, 2 = Arquero.
         public void Choose(int classIndex)
         {
             if (HasChosen) return;
-            var prefab = classIndex == 1 ? lancerPrefab : warriorPrefab;
+            var prefab = classIndex == 2 ? archerPrefab
+                       : classIndex == 1 ? lancerPrefab : warriorPrefab;
             if (prefab == null) return;
 
             HasChosen = true;

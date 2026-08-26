@@ -51,7 +51,7 @@ namespace TinyRpg
             {
                 Capture("00_class_select");
                 yield return new WaitForSecondsRealtime(0.5f);
-                ClassSelectScreen.Instance.Choose(1); // verificar el Lancero
+                ClassSelectScreen.Instance.Choose(2); // verificar el Arquero
             }
 
             yield return new WaitForSecondsRealtime(0.9f);

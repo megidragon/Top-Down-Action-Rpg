@@ -43,16 +43,20 @@ namespace TinyRpg
 
         public bool isPlayer;
 
-        CharacterStats stats;
-        CharacterMotor motor;
-        UnitAnimator unitAnimator;
+        /// Posicion del cursor en el mundo (la fija el PlayerController; las
+        /// clases de rango la usan para apuntar en area).
+        [NonSerialized] public Vector2 AimPoint;
 
-        Coroutine actionRoutine;
+        protected CharacterStats stats;
+        protected CharacterMotor motor;
+        protected UnitAnimator unitAnimator;
+
+        protected Coroutine actionRoutine;
         float parryCooldownTimer;
         float staggerTimer;
-        float attackRecoveryTimer;
+        protected float attackRecoveryTimer;
 
-        public bool IsAttacking { get; private set; }
+        public bool IsAttacking { get; protected set; }
         public bool IsParryActive { get; private set; }
         public Vector2 ParryDirection { get; private set; }
         public bool IsStaggered => staggerTimer > 0f;
@@ -67,7 +71,7 @@ namespace TinyRpg
 
         static readonly Collider2D[] overlapBuffer = new Collider2D[24];
 
-        void Awake()
+        protected virtual void Awake()
         {
             stats = GetComponent<CharacterStats>();
             motor = GetComponent<CharacterMotor>();
@@ -75,7 +79,7 @@ namespace TinyRpg
             stats.Died += OnOwnerDied;
         }
 
-        void OnOwnerDied()
+        protected virtual void OnOwnerDied()
         {
             // La muerte cancela cualquier accion en curso (sin VFX postumos
             // ni desbloqueos del visual de muerte).
@@ -86,7 +90,7 @@ namespace TinyRpg
             motor.MoveControl = 1f;
         }
 
-        void Update()
+        protected virtual void Update()
         {
             if (parryCooldownTimer > 0f) parryCooldownTimer -= Time.deltaTime;
             if (attackRecoveryTimer > 0f) attackRecoveryTimer -= Time.deltaTime;
@@ -96,6 +100,11 @@ namespace TinyRpg
                 if (staggerTimer <= 0f) motor.MoveControl = 1f;
             }
         }
+
+        // --- Entradas del jugador (las clases de rango las redefinen) ---
+        public virtual void OnPrimaryDown(Vector2 aimDir) { TrySweep(aimDir); }
+        public virtual void OnPrimaryUp(Vector2 aimDir) { }
+        public virtual void OnSecondaryDown(Vector2 aimDir) { TryStab(aimDir); }
 
         public bool TrySweep(Vector2 aimDir) => TryAttack(AttackKind.Sweep, aimDir);
         public bool TryStab(Vector2 aimDir) => TryAttack(AttackKind.Stab, aimDir);
@@ -252,6 +261,9 @@ namespace TinyRpg
             // Temblor de camara cuando el ataque del jugador impacta.
             if (anyImpact && isPlayer) SmoothCameraFollow.Shake(0.4f);
         }
+
+        /// Consume el bloqueo del parry desde fuera (p.ej. una flecha bloqueada).
+        public void ConsumeParryBlock() => OnParrySuccess();
 
         void OnParrySuccess()
         {
