@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
@@ -66,6 +69,7 @@ namespace TinyRpg.EditorTools
                 EnsureFolders();
 
                 var controllers = BuildWarriorControllers();
+                var lancerController = BuildLancerController();
                 var sheepController = BuildSheepController();
                 pawnController = BuildPawnController();
                 coinIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Coins/Coins_Medium_Gold.png");
@@ -76,7 +80,10 @@ namespace TinyRpg.EditorTools
 
                 BuildTilemaps(map);
 
-                var playerPrefab = BuildCharacterPrefab("Player", controllers["Blue"], "Blue", true);
+                var playerWarrior = BuildCharacterPrefab("Player_Warrior", controllers["Blue"], "Blue",
+                    true, WarriorPlayerTuning());
+                var playerLancer = BuildCharacterPrefab("Player_Lancer", lancerController, "Blue",
+                    true, LancerPlayerTuning());
                 var enemyPrefabs = new Dictionary<string, GameObject>
                 {
                     ["Red"] = BuildCharacterPrefab("Enemy_Red", controllers["Red"], "Red", false),
@@ -85,10 +92,10 @@ namespace TinyRpg.EditorTools
                 };
                 var sheepPrefab = BuildSheepPrefab(sheepController);
 
-                var world = PopulateWorld(map, playerPrefab, enemyPrefabs, sheepPrefab);
+                var world = PopulateWorld(map, enemyPrefabs, sheepPrefab);
 
-                BuildCameraAndLight(world.playerInstance);
-                BuildHudAndManagers();
+                var cameraFollow = BuildCameraAndLight(world.spawnPosition);
+                BuildHudAndManagers(playerWarrior, playerLancer, world.spawnPosition, cameraFollow);
 
                 EditorSceneManager.SaveScene(scene, ScenePath);
                 EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -136,6 +143,56 @@ namespace TinyRpg.EditorTools
             }
             return result;
         }
+
+        static RuntimeAnimatorController BuildLancerController()
+        {
+            string path = $"{OutDir}/Anim/Lancer_Blue_Player.controller";
+            AssetDatabase.DeleteAsset(path);
+            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+            var sm = controller.layers[0].stateMachine;
+            // Ojo: los .anim del Lancer llevan un espacio tras "Lancer_".
+            var idle = AddState(sm, "Idle", FindClip("Lancer_Idle_Blue"), loop: true);
+            AddState(sm, "Run", FindClip("Lancer_ Run_Blue"), loop: true);
+            AddState(sm, "Attack1", FindClip("Lancer_ Right_Attack_Blue"), loop: false);
+            AddState(sm, "Attack2", FindClip("Lancer_ Right_Attack_Blue"), loop: false);
+            AddState(sm, "Guard", FindClip("Lancer_ Right_Defence_Blue"), loop: true);
+            sm.defaultState = idle;
+            return controller;
+        }
+
+        /// Ajustes por clase aplicados sobre el prefab base del personaje.
+        class UnitTuning
+        {
+            public string idlePngPath;
+            public float maxHealth = 150f;
+            public float spriteYOffset = 0.62f;
+            public float sweepRange = 1.8f;
+            public float sweepDamage = 20f;
+            public float stabRange = 3.0f;
+            public float stabDamage = 30f;
+            public float attackDuration = 0.4f;
+            public float hitDelay = 0.18f;
+            public float attackRecovery = 0.1f;
+        }
+
+        // Guerrero: linea base. Ciclo de ataque = 0.4 + 0.1 = 0.5 s.
+        static UnitTuning WarriorPlayerTuning() => new UnitTuning();
+
+        // Lancero: menos vida (75% del guerrero), mas alcance y algo mas de dano,
+        // pero recuperacion al 175% del ciclo del guerrero (0.875 s por golpe).
+        static UnitTuning LancerPlayerTuning() => new UnitTuning
+        {
+            idlePngPath = TS + "Units/Blue Units/Lancer/Lancer_Idle.png",
+            maxHealth = 112f,
+            spriteYOffset = 0.68f,
+            sweepRange = 2.5f,
+            sweepDamage = 25f,
+            stabRange = 3.8f,
+            stabDamage = 36f,
+            attackDuration = 0.55f,
+            hitDelay = 0.24f,
+            attackRecovery = 0.325f,
+        };
 
         static RuntimeAnimatorController BuildPawnController()
         {
@@ -463,10 +520,10 @@ namespace TinyRpg.EditorTools
         // =================================================================
 
         static GameObject BuildCharacterPrefab(string name, RuntimeAnimatorController controller,
-            string color, bool isPlayer)
+            string color, bool isPlayer, UnitTuning tuning = null)
         {
-            string unitDir = $"{TS}Units/{color} Units/Warrior/";
-            var idleSprite = LoadFirstSprite(unitDir + "Warrior_Idle.png");
+            string idlePath = tuning?.idlePngPath ?? $"{TS}Units/{color} Units/Warrior/Warrior_Idle.png";
+            var idleSprite = LoadFirstSprite(idlePath);
 
             var root = new GameObject(name);
             try
@@ -481,16 +538,26 @@ namespace TinyRpg.EditorTools
 
                 var stats = root.AddComponent<CharacterStats>();
                 stats.team = isPlayer ? 0 : 1;
-                stats.maxHealth = isPlayer ? 150f : 100f;
+                stats.maxHealth = tuning != null ? tuning.maxHealth : (isPlayer ? 150f : 100f);
 
                 root.AddComponent<CharacterMotor>();
                 var combat = root.AddComponent<CharacterCombat>();
                 combat.isPlayer = isPlayer;
+                if (tuning != null)
+                {
+                    combat.sweepRange = tuning.sweepRange;
+                    combat.sweepDamage = tuning.sweepDamage;
+                    combat.stabRange = tuning.stabRange;
+                    combat.stabDamage = tuning.stabDamage;
+                    combat.attackDuration = tuning.attackDuration;
+                    combat.hitDelay = tuning.hitDelay;
+                    combat.attackRecovery = tuning.attackRecovery;
+                }
 
                 // Sprite animado (los pies del personaje quedan en el origen del root).
                 var spriteGo = new GameObject("Sprite");
                 spriteGo.transform.SetParent(root.transform, false);
-                spriteGo.transform.localPosition = new Vector3(0f, 0.62f, 0f);
+                spriteGo.transform.localPosition = new Vector3(0f, tuning?.spriteYOffset ?? 0.62f, 0f);
                 var sr = spriteGo.AddComponent<SpriteRenderer>();
                 sr.sprite = idleSprite;
                 var animator = spriteGo.AddComponent<Animator>();
@@ -703,10 +770,10 @@ namespace TinyRpg.EditorTools
 
         class WorldRefs
         {
-            public GameObject playerInstance;
+            public Vector2 spawnPosition;
         }
 
-        static WorldRefs PopulateWorld(MapData map, GameObject playerPrefab,
+        static WorldRefs PopulateWorld(MapData map,
             Dictionary<string, GameObject> enemyPrefabs, GameObject sheepPrefab)
         {
             var refs = new WorldRefs();
@@ -738,7 +805,9 @@ namespace TinyRpg.EditorTools
             PlaceBuilding(map, occupied, decorParent, TS + "Buildings/Blue Buildings/House2.png",
                 spawnCell + new Vector2Int(6, 3), 2, 1);
 
-            refs.playerInstance = Spawn(playerPrefab, spawn, unitsParent);
+            // El jugador ya no se instancia aqui: lo crea ClassSelectScreen al
+            // elegir clase. Solo guardamos el punto de aparicion.
+            refs.spawnPosition = spawn;
 
             // Vendedor neutral (Blue Pawn) frente al castillo.
             BuildVendor(CellCenter(spawnCell + new Vector2Int(1, 2)), unitsParent);
@@ -993,7 +1062,7 @@ namespace TinyRpg.EditorTools
         //  CAMARA, LUZ, HUD Y GESTORES
         // =================================================================
 
-        static void BuildCameraAndLight(GameObject player)
+        static SmoothCameraFollow BuildCameraAndLight(Vector2 spawnPosition)
         {
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
@@ -1005,12 +1074,10 @@ namespace TinyRpg.EditorTools
             camGo.AddComponent<AudioListener>();
 
             var follow = camGo.AddComponent<SmoothCameraFollow>();
-            follow.target = player != null ? player.transform : null;
+            follow.target = null; // se asigna al elegir clase
             follow.boundsMin = new Vector2(0f, 0f);
             follow.boundsMax = new Vector2(MapData.W, MapData.H);
-            if (player != null)
-                camGo.transform.position = new Vector3(player.transform.position.x,
-                    player.transform.position.y, -10f);
+            camGo.transform.position = new Vector3(spawnPosition.x, spawnPosition.y, -10f);
 
             var lightGo = new GameObject("Global Light 2D");
             var light = lightGo.AddComponent<Light2D>();
@@ -1031,10 +1098,18 @@ namespace TinyRpg.EditorTools
                 AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.render-pipelines.universal/Runtime/Materials/Sprite-Unlit-Default.mat");
             if (lib.vfxMaterial == null)
                 lib.vfxMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+
+            return follow;
         }
 
-        static void BuildHudAndManagers()
+        static void BuildHudAndManagers(GameObject playerWarrior, GameObject playerLancer,
+            Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
         {
+            // EventSystem para que los botones de UI funcionen con el Input System.
+            var eventSystemGo = new GameObject("EventSystem");
+            eventSystemGo.AddComponent<EventSystem>();
+            eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
             var canvasGo = new GameObject("HUD");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -1088,6 +1163,119 @@ namespace TinyRpg.EditorTools
             var managerGo = new GameObject("GameManager");
             var manager = managerGo.AddComponent<GameManager>();
             manager.messageText = message;
+
+            BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer,
+                spawnPosition, cameraFollow);
+        }
+
+        /// Pantalla de seleccion de clase: Guerrero y Lancero jugables; Arquero y
+        /// Monje en silueta, bloqueados de momento.
+        static void BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
+            GameObject playerLancer, Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
+        {
+            // Panel a pantalla completa (ultimo hijo del canvas: se dibuja encima de todo).
+            var panelGo = new GameObject("ClassSelectPanel");
+            panelGo.transform.SetParent(canvas, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.sprite = GetWhiteSprite();
+            panelImg.color = new Color(0.05f, 0.05f, 0.07f, 0.86f);
+            var prt = panelImg.rectTransform;
+            prt.anchorMin = Vector2.zero;
+            prt.anchorMax = Vector2.one;
+            prt.offsetMin = Vector2.zero;
+            prt.offsetMax = Vector2.zero;
+
+            var title = MakeText(panelGo.transform, "Title", font, 54, "ELIGE TU CLASE");
+            var trt = title.rectTransform;
+            trt.anchorMin = new Vector2(0.5f, 1f);
+            trt.anchorMax = new Vector2(0.5f, 1f);
+            trt.pivot = new Vector2(0.5f, 1f);
+            trt.anchoredPosition = new Vector2(0f, -110f);
+            trt.sizeDelta = new Vector2(900f, 80f);
+            title.alignment = TextAnchor.MiddleCenter;
+            title.color = new Color(1f, 0.93f, 0.75f, 1f);
+
+            var bootstrapGo = new GameObject("GameBootstrap");
+            var screen = bootstrapGo.AddComponent<ClassSelectScreen>();
+            screen.panel = panelGo;
+            screen.warriorPrefab = playerWarrior;
+            screen.lancerPrefab = playerLancer;
+            screen.spawnPosition = spawnPosition;
+            screen.cameraFollow = cameraFollow;
+
+            MakeClassCard(panelGo.transform, font, -450f, "Guerrero", "Tecla 1",
+                TS + "Units/Blue Units/Warrior/Warrior_Idle.png", screen, 0);
+            MakeClassCard(panelGo.transform, font, -150f, "Lancero", "Tecla 2",
+                TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
+            MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Bloqueado",
+                TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, -1);
+            MakeClassCard(panelGo.transform, font, 450f, "Monje", "Bloqueado",
+                TS + "Units/Blue Units/Monk/Idle.png", screen, -1);
+        }
+
+        static void MakeClassCard(Transform parent, Font font, float x, string title,
+            string subtitle, string portraitPath, ClassSelectScreen screen, int classIndex)
+        {
+            bool locked = classIndex < 0;
+
+            var cardGo = new GameObject("Card_" + title);
+            cardGo.transform.SetParent(parent, false);
+            var bg = cardGo.AddComponent<Image>();
+            bg.sprite = GetWhiteSprite();
+            bg.color = locked ? new Color(0.1f, 0.09f, 0.08f, 0.95f)
+                              : new Color(0.24f, 0.19f, 0.12f, 0.97f);
+            var rt = bg.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x, -30f);
+            rt.sizeDelta = new Vector2(260f, 360f);
+
+            var portraitGo = new GameObject("Portrait");
+            portraitGo.transform.SetParent(cardGo.transform, false);
+            var portrait = portraitGo.AddComponent<Image>();
+            portrait.sprite = LoadFirstSprite(portraitPath);
+            portrait.preserveAspect = true;
+            portrait.raycastTarget = false;
+            // Silueta ennegrecida para las clases bloqueadas.
+            portrait.color = locked ? new Color(0.04f, 0.04f, 0.05f, 1f) : Color.white;
+            var prt2 = portrait.rectTransform;
+            prt2.anchorMin = new Vector2(0.5f, 0.5f);
+            prt2.anchorMax = new Vector2(0.5f, 0.5f);
+            prt2.anchoredPosition = new Vector2(0f, 50f);
+            prt2.sizeDelta = new Vector2(200f, 200f);
+
+            var nameText = MakeText(cardGo.transform, "Name", font, 32, title);
+            var nrt = nameText.rectTransform;
+            nrt.anchorMin = new Vector2(0.5f, 0f);
+            nrt.anchorMax = new Vector2(0.5f, 0f);
+            nrt.pivot = new Vector2(0.5f, 0f);
+            nrt.anchoredPosition = new Vector2(0f, 66f);
+            nrt.sizeDelta = new Vector2(240f, 44f);
+            nameText.alignment = TextAnchor.MiddleCenter;
+            nameText.color = locked ? new Color(0.5f, 0.47f, 0.42f, 1f) : Color.white;
+
+            var subText = MakeText(cardGo.transform, "Subtitle", font, 22, subtitle);
+            var srt = subText.rectTransform;
+            srt.anchorMin = new Vector2(0.5f, 0f);
+            srt.anchorMax = new Vector2(0.5f, 0f);
+            srt.pivot = new Vector2(0.5f, 0f);
+            srt.anchoredPosition = new Vector2(0f, 24f);
+            srt.sizeDelta = new Vector2(240f, 34f);
+            subText.alignment = TextAnchor.MiddleCenter;
+            subText.color = locked ? new Color(0.45f, 0.4f, 0.36f, 1f)
+                                   : new Color(1f, 0.85f, 0.45f, 1f);
+
+            if (!locked)
+            {
+                var button = cardGo.AddComponent<Button>();
+                button.targetGraphic = bg;
+                var colors = button.colors;
+                colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+                colors.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+                button.colors = colors;
+                // Listener persistente (serializado en la escena).
+                UnityEventTools.AddIntPersistentListener(button.onClick, screen.Choose, classIndex);
+            }
         }
 
         /// Barra de inventario: 4 slots en la parte inferior central (teclas 1-4).

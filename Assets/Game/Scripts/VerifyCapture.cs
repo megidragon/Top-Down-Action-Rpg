@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using System;
 using System.Collections;
 using System.IO;
@@ -44,9 +44,19 @@ namespace TinyRpg
 
         IEnumerator Start()
         {
-            yield return new WaitForSeconds(0.9f);
+            // Esperas en tiempo real: el juego arranca pausado (timeScale 0)
+            // mientras se muestra la seleccion de clase.
+            yield return new WaitForSecondsRealtime(0.7f);
+            if (ClassSelectScreen.Instance != null && !ClassSelectScreen.Instance.HasChosen)
+            {
+                Capture("00_class_select");
+                yield return new WaitForSecondsRealtime(0.5f);
+                ClassSelectScreen.Instance.Choose(1); // verificar el Lancero
+            }
+
+            yield return new WaitForSecondsRealtime(0.9f);
             Capture("01_spawn");
-            yield return new WaitForSeconds(0.4f);
+            yield return new WaitForSecondsRealtime(0.4f);
 
             // Vista general del mapa completo.
             var cam = Camera.main;
@@ -58,20 +68,20 @@ namespace TinyRpg
                 cam.orthographicSize = 34f;
                 cam.transform.position = new Vector3(48f, 32f, -10f);
             }
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSecondsRealtime(0.5f);
             Capture("02_overview");
-            yield return new WaitForSeconds(0.3f);
+            yield return new WaitForSecondsRealtime(0.3f);
             if (cam != null)
             {
                 cam.orthographicSize = originalSize;
                 if (follow != null) follow.enabled = true;
             }
 
-            yield return new WaitForSeconds(2.5f);
+            yield return new WaitForSecondsRealtime(2.5f);
             Capture("03_gameplay_a");
-            yield return new WaitForSeconds(3f);
+            yield return new WaitForSecondsRealtime(3f);
             Capture("04_gameplay_b");
-            yield return new WaitForSeconds(0.8f);
+            yield return new WaitForSecondsRealtime(0.8f);
 
             File.WriteAllText("Temp/tinyrpg_verify_done.txt", "OK " + DateTime.Now.ToString("HH:mm:ss"));
 

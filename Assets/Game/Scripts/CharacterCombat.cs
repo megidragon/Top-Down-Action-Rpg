@@ -31,6 +31,7 @@ namespace TinyRpg
         [Header("Tiempos y costes")]
         public float attackDuration = 0.4f;  // duracion del clip Attack a 10 fps
         public float hitDelay = 0.18f;       // momento del impacto dentro de la animacion
+        public float attackRecovery = 0.1f;  // recarga tras el golpe antes de poder atacar de nuevo
         public float attackEnergyCost = 25f;
         public float staggerDuration = 0.55f;
 
@@ -49,6 +50,7 @@ namespace TinyRpg
         Coroutine actionRoutine;
         float parryCooldownTimer;
         float staggerTimer;
+        float attackRecoveryTimer;
 
         public bool IsAttacking { get; private set; }
         public bool IsParryActive { get; private set; }
@@ -87,6 +89,7 @@ namespace TinyRpg
         void Update()
         {
             if (parryCooldownTimer > 0f) parryCooldownTimer -= Time.deltaTime;
+            if (attackRecoveryTimer > 0f) attackRecoveryTimer -= Time.deltaTime;
             if (staggerTimer > 0f)
             {
                 staggerTimer -= Time.deltaTime;
@@ -99,7 +102,7 @@ namespace TinyRpg
 
         bool TryAttack(AttackKind kind, Vector2 aimDir)
         {
-            if (IsBusy || motor.IsDashing) return false;
+            if (IsBusy || motor.IsDashing || attackRecoveryTimer > 0f) return false;
             if (aimDir.sqrMagnitude < 0.001f) return false;
             if (!stats.TrySpendEnergy(attackEnergyCost)) return false;
 
@@ -134,6 +137,7 @@ namespace TinyRpg
 
             IsAttacking = false;
             motor.MoveControl = 1f;
+            attackRecoveryTimer = attackRecovery; // recarga del arma antes del siguiente golpe
             actionRoutine = null;
         }
 
@@ -260,6 +264,11 @@ namespace TinyRpg
         {
             if (stats.IsDead) return;
             if (actionRoutine != null) { StopCoroutine(actionRoutine); actionRoutine = null; }
+            // Un ataque cancelado paga su recarga DESPUES del aturdimiento: ser
+            // bloqueado nunca acelera el siguiente golpe (relevante para el ciclo
+            // largo del lancero, cuyo stagger es mas corto que su recarga total).
+            if (IsAttacking)
+                attackRecoveryTimer = Mathf.Max(attackRecoveryTimer, staggerDuration + attackRecovery);
             IsAttacking = false;
             IsParryActive = false;
             staggerTimer = staggerDuration;

@@ -247,6 +247,7 @@ MonoBehaviour:
   stabKnockback: 6
   attackDuration: 0.4
   hitDelay: 0.18
+  attackRecovery: 0.1
   attackEnergyCost: 25
   staggerDuration: 0.55
   parryDuration: 0.35
