@@ -16,6 +16,7 @@ namespace TinyRpg.EditorTools
         // y las senales armadas durante un reinicio se perderian.
         const string BuildRequest = "Library/tinyrpg_build_request.txt";
         const string VerifyRequest = "Library/tinyrpg_verify_request.txt";
+        const string PlayerRequest = "Library/tinyrpg_player_request.txt";
         const string ResultFile = "Library/tinyrpg_build_result.txt";
 
         static double nextCheck;
@@ -51,6 +52,15 @@ namespace TinyRpg.EditorTools
                 {
                     File.WriteAllText(ResultFile, "FAIL " + e);
                 }
+                return;
+            }
+
+            if (File.Exists(PlayerRequest))
+            {
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                File.Delete(PlayerRequest);
+                PlayerBuilder.BuildWindows();
                 return;
             }
 

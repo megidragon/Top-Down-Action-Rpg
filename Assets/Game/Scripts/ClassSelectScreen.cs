@@ -32,6 +32,20 @@ namespace TinyRpg
             // y llama a Show() al pulsar "Comenzar partida".
             Time.timeScale = 0f;
             if (panel != null) panel.SetActive(false);
+
+            // Tras morir y pulsar R: saltar el titulo e ir directo a elegir
+            // clase, un frame despues de que todos los Start hayan corrido.
+            if (TitleScreen.SkipTitleOnce)
+                StartCoroutine(ShowAfterSkip());
+        }
+
+        System.Collections.IEnumerator ShowAfterSkip()
+        {
+            yield return null; // esperar a que corran todos los Start
+            TitleScreen.SkipTitleOnce = false;
+            if (TitleScreen.Instance != null && TitleScreen.Instance.panel != null)
+                TitleScreen.Instance.panel.SetActive(false);
+            Show();
         }
 
         public void Show()

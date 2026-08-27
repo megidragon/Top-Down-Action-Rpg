@@ -25,16 +25,10 @@ namespace TinyRpg
         {
             GameSettings.ApplyAll();
             Time.timeScale = 0f;
-            if (SkipTitleOnce)
-            {
-                SkipTitleOnce = false;
-                if (panel != null) panel.SetActive(false);
-                classSelect?.Show();
-            }
-            else if (panel != null)
-            {
-                panel.SetActive(true);
-            }
+            // Con SkipTitleOnce solo se oculta el titulo; ClassSelectScreen
+            // consume la marca y se muestra al frame siguiente (despues de que
+            // corran TODOS los Start, evitando la carrera de orden).
+            if (panel != null) panel.SetActive(!SkipTitleOnce);
         }
 
         void OnDestroy()
