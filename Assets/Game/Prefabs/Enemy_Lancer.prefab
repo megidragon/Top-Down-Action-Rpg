@@ -641,6 +641,8 @@ MonoBehaviour:
   stats: {fileID: 0}
   healthFillAnchor: {fileID: 2314352639103732720}
   energyFillAnchor: {fileID: 7910938168070500949}
+  manaFillAnchor: {fileID: 0}
+  manaBar: {fileID: 0}
 --- !u!1 &7138162204718789268
 GameObject:
   m_ObjectHideFlags: 0

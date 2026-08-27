@@ -564,7 +564,7 @@ namespace TinyRpg.EditorTools
                 var sorter = root.AddComponent<YSorter>();
                 sorter.renderers = new[] { sr };
 
-                BuildWorldBars(root, isPlayer);
+                BuildWorldBars(root, isPlayer, tuning != null && (tuning.mage || tuning.monk));
 
                 if (isPlayer)
                 {
@@ -587,7 +587,7 @@ namespace TinyRpg.EditorTools
             }
         }
 
-        static void BuildWorldBars(GameObject root, bool friendly)
+        static void BuildWorldBars(GameObject root, bool friendly, bool usesMana)
         {
             var baseSprite = LoadFirstSprite(TS + "UI Elements/Bars/SmallBar_Base.png");
             // Vida en verde claro para el bando del jugador (aliados incluidos,
@@ -607,6 +607,17 @@ namespace TinyRpg.EditorTools
             bars.energyFillAnchor = BuildOneBar(barsGo.transform, "Energy", baseSprite, GetWhiteSprite(),
                 new Vector3(0f, 1.33f, 0f), new Vector3(0.62f, 0.5f, 1f), new Color(1f, 0.82f, 0.25f, 1f), 30002,
                 new Vector2(10.25f, 1.125f));
+
+            // Tercera barra, azul, justo debajo de la de energia. Solo la
+            // llevan mago y monje; WorldStatusBars la oculta en el resto.
+            if (usesMana)
+            {
+                bars.manaFillAnchor = BuildOneBar(barsGo.transform, "Mana", baseSprite, GetWhiteSprite(),
+                    new Vector3(0f, 1.15f, 0f), new Vector3(0.62f, 0.5f, 1f),
+                    new Color(0.35f, 0.62f, 1f, 1f), 30004, new Vector2(10.25f, 1.125f));
+                // El marco es el padre del ancla de relleno.
+                bars.manaBar = bars.manaFillAnchor.parent.gameObject;
+            }
         }
 
         static Transform BuildOneBar(Transform parent, string name, Sprite baseSprite, Sprite fillSprite,

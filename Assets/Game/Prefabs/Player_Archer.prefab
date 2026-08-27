@@ -823,3 +823,5 @@ MonoBehaviour:
   stats: {fileID: 0}
   healthFillAnchor: {fileID: 279616057931370195}
   energyFillAnchor: {fileID: 3851805871663753593}
+  manaFillAnchor: {fileID: 0}
+  manaBar: {fileID: 0}
