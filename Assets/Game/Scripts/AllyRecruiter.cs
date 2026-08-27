@@ -38,6 +38,7 @@ namespace TinyRpg
                 case 1: return "class.lancer";
                 case 2: return "class.archer";
                 case 3: return "class.monk";
+                case 4: return "class.mage";
                 default: return "class.warrior";
             }
         }

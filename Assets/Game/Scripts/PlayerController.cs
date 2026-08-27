@@ -49,6 +49,10 @@ namespace TinyRpg
                 return;
             }
 
+            // Juego pausado (menu de pausa): los clicks sobre el menu no deben
+            // atravesarlo y disparar ataques ni gastar energia por debajo.
+            if (Time.timeScale <= 0f) return;
+
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
             if (keyboard == null || mouse == null) return;

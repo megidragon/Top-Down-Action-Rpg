@@ -16,7 +16,7 @@ namespace TinyRpg
         static readonly RaycastHit2D[] castBuffer = new RaycastHit2D[8];
 
         public static void Spawn(Vector2 origin, Vector2 direction, float speed, float range,
-            float damage, int attackerTeam, bool attackerIsPlayer)
+            float damage, int attackerTeam, bool attackerIsPlayer, Sprite sprite = null)
         {
             var go = new GameObject("Arrow");
             go.transform.position = origin;
@@ -24,7 +24,7 @@ namespace TinyRpg
                 Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
 
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = VfxLibrary.ArrowSprite;
+            sr.sprite = sprite != null ? sprite : VfxLibrary.ArrowSprite;
             sr.sortingOrder = YSorter.OrderForY(origin.y) + 3;
 
             var arrow = go.AddComponent<ArrowProjectile>();
@@ -38,12 +38,13 @@ namespace TinyRpg
 
         void Update()
         {
-            float step = Mathf.Min(speed * Time.deltaTime, remainingRange);
-            if (step <= 0f)
+            if (remainingRange <= 0f)
             {
                 Destroy(gameObject);
                 return;
             }
+            float step = Mathf.Min(speed * Time.deltaTime, remainingRange);
+            if (step <= 0f) return; // pausa (deltaTime 0): congelar, no destruir
 
             Vector2 pos = transform.position;
             int count = Physics2D.CircleCast(pos, 0.12f, direction,

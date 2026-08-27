@@ -106,8 +106,9 @@ namespace TinyRpg
 
         void RefreshClassTuning()
         {
-            // El arquero listo mantiene la distancia; el tonto camina hacia ti.
-            if (combat is ArcherCombat)
+            // Las clases de rango listas mantienen la distancia; las tontas
+            // caminan hacia ti.
+            if (combat is ArcherCombat || combat is MageCombat)
                 preferredDistance = tier == 2 ? 4.5f : tier == 1 ? 3f : 1.6f;
         }
 
@@ -275,6 +276,47 @@ namespace TinyRpg
                     combat.OnPrimaryDown(aim);
                     StartCoroutine(ReleaseArtillery(foe));
                     Pause(1.6f, 2.4f);
+                }
+                return;
+            }
+
+            // --- Mago enemigo ---
+            if (combat is MageCombat)
+            {
+                if (tier == 0)
+                {
+                    // Tonto: solo el circulo telegrafiado, con calma.
+                    if (dist <= 7f && stats.Energy >= 25f)
+                    {
+                        combat.OnSecondaryDown(aim);
+                        Pause(1.8f, 2.6f);
+                    }
+                    return;
+                }
+                if (tier == 1)
+                {
+                    if (dist <= 5.5f && stats.Energy >= 25f)
+                    {
+                        combat.OnPrimaryDown(aim); // proyectil
+                        Pause(1.2f, 1.8f);
+                    }
+                    else if (dist <= 7f && stats.Energy >= 25f && Random.value < 0.5f)
+                    {
+                        combat.OnSecondaryDown(aim); // circulo
+                        Pause(1.6f, 2.4f);
+                    }
+                    return;
+                }
+                // Inteligente: circulo a media-larga distancia, proyectil de cerca.
+                if (dist > 3f && dist <= 7f && stats.Energy >= 25f && Random.value < 0.45f)
+                {
+                    combat.OnSecondaryDown(aim);
+                    Pause(1.3f, 2f);
+                }
+                else if (dist <= 7.5f && stats.Energy >= 25f)
+                {
+                    combat.OnPrimaryDown(aim);
+                    Pause(0.9f, 1.5f);
                 }
                 return;
             }

@@ -51,6 +51,8 @@ namespace TinyRpg.EditorTools
                 var archerRed = BuildArcherController("Red");
                 var monkBlue = BuildMonkController("Blue");
                 var monkRed = BuildMonkController("Red");
+                var mageBlue = BuildMageController("Blue");
+                var mageRed = BuildMageController("Red");
                 var sheepController = BuildSheepController();
                 var pawnController = BuildPawnNpcController();
 
@@ -69,6 +71,8 @@ namespace TinyRpg.EditorTools
                     true, ArcherPlayerTuning());
                 var playerMonk = BuildCharacterPrefab("Player_Monk", monkBlue, "Blue",
                     true, MonkPlayerTuning());
+                var playerMage = BuildCharacterPrefab("Player_Mage", mageBlue, "Blue",
+                    true, MagePlayerTuning());
 
                 var enemyWarrior = BuildCharacterPrefab("Enemy_Warrior", warriorRed, "Red", false);
                 var enemyLancer = BuildCharacterPrefab("Enemy_Lancer", lancerRed, "Red",
@@ -77,6 +81,8 @@ namespace TinyRpg.EditorTools
                     false, EnemyArcherTuning());
                 var enemyMonk = BuildCharacterPrefab("Enemy_Monk", monkRed, "Red",
                     false, EnemyMonkTuning());
+                var enemyMage = BuildCharacterPrefab("Enemy_Mage", mageRed, "Red",
+                    false, EnemyMageTuning());
                 var sheepPrefab = BuildSheepPrefab(sheepController);
                 var pawnPrefab = BuildPawnNpcPrefab(pawnController);
 
@@ -84,10 +90,10 @@ namespace TinyRpg.EditorTools
                 var layers = BuildEmptyTilemaps();
                 var cameraFollow = BuildCameraAndLight();
                 BuildMapLibrary(layers,
-                    new[] { enemyWarrior, enemyLancer, enemyArcher, enemyMonk },
+                    new[] { enemyWarrior, enemyLancer, enemyArcher, enemyMonk, enemyMage },
                     sheepPrefab, pawnPrefab);
                 BuildHudAndManagers(playerWarrior, playerLancer, playerArcher, playerMonk,
-                    cameraFollow);
+                    playerMage, cameraFollow);
 
                 EditorSceneManager.SaveScene(scene, ScenePath);
                 EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -184,6 +190,22 @@ namespace TinyRpg.EditorTools
             // Los .anim del pawn llevan espacio en el nombre de la herramienta.
             AddState(sm, "Mine", FindClip("Pawn_Interact Pickaxe_Blue"), loop: true);
             AddState(sm, "Chop", FindClip("Pawn_Interact Axe_Blue"), loop: true);
+            sm.defaultState = idle;
+            return controller;
+        }
+
+        static RuntimeAnimatorController BuildMageController(string color)
+        {
+            // Los clips del mago son propios (Assets/Game/Sprites/Mage[Red]):
+            // azul = "Mage_*", rojo = "MageRed_*".
+            string prefix = color == "Red" ? "MageRed" : "Mage";
+            var (controller, sm) = NewController($"Mage_{color}_Player");
+            var idle = AddState(sm, "Idle", FindClip($"{prefix}_Idle"), loop: true);
+            AddState(sm, "Run", FindClip($"{prefix}_Run"), loop: true);
+            var attack = FindClip($"{prefix}_Attack") ?? FindClip($"{prefix}_Idle");
+            AddState(sm, "Attack1", attack, loop: false);
+            AddState(sm, "Attack2", attack, loop: false);
+            AddState(sm, "Guard", FindClip($"{prefix}_Idle"), loop: true);
             sm.defaultState = idle;
             return controller;
         }
@@ -327,6 +349,7 @@ namespace TinyRpg.EditorTools
             public string idlePngPath;
             public bool ranged;
             public bool monk;
+            public bool mage;
             public float maxHealth = 150f;
             public float spriteYOffset = 0.62f;
             public float sweepRange = 1.8f;
@@ -377,6 +400,16 @@ namespace TinyRpg.EditorTools
             attackRecovery = 0.1f,
         };
 
+        static UnitTuning MagePlayerTuning() => new UnitTuning
+        {
+            idlePngPath = "Assets/Game/Sprites/Mage/Mage_Idle.png",
+            mage = true,
+            maxHealth = 90f,
+            attackDuration = 0.4f,
+            hitDelay = 0.14f,
+            attackRecovery = 0.15f,
+        };
+
         // Enemigos: mismas identidades con menos vida que el jugador.
         static UnitTuning EnemyLancerTuning() => new UnitTuning
         {
@@ -414,6 +447,16 @@ namespace TinyRpg.EditorTools
             attackRecovery = 0.1f,
         };
 
+        static UnitTuning EnemyMageTuning() => new UnitTuning
+        {
+            idlePngPath = "Assets/Game/Sprites/MageRed/MageRed_Idle.png",
+            mage = true,
+            maxHealth = 65f,
+            attackDuration = 0.4f,
+            hitDelay = 0.14f,
+            attackRecovery = 0.15f,
+        };
+
         // =================================================================
         //  PREFABS
         // =================================================================
@@ -442,9 +485,11 @@ namespace TinyRpg.EditorTools
                 root.AddComponent<CharacterMotor>();
                 CharacterCombat combat = tuning != null && tuning.ranged
                     ? root.AddComponent<ArcherCombat>()
-                    : tuning != null && tuning.monk
-                        ? root.AddComponent<MonkCombat>()
-                        : root.AddComponent<CharacterCombat>();
+                    : tuning != null && tuning.mage
+                        ? root.AddComponent<MageCombat>()
+                        : tuning != null && tuning.monk
+                            ? root.AddComponent<MonkCombat>()
+                            : root.AddComponent<CharacterCombat>();
                 combat.isPlayer = isPlayer;
                 if (tuning != null)
                 {
@@ -783,6 +828,8 @@ namespace TinyRpg.EditorTools
             if (lib.vfxMaterial == null)
                 lib.vfxMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
             lib.arrowSprite = LoadFirstSprite(TS + "Units/Extra/Arrow/Arrow.png");
+            lib.magicBoltSprite = LoadFirstSprite("Assets/Game/Sprites/Mage/MagicBolt.png");
+            lib.magicCircleSprite = LoadFirstSprite("Assets/Game/Sprites/Mage/MagicCircle.png");
 
             return follow;
         }
@@ -792,7 +839,8 @@ namespace TinyRpg.EditorTools
         // =================================================================
 
         static void BuildHudAndManagers(GameObject playerWarrior, GameObject playerLancer,
-            GameObject playerArcher, GameObject playerMonk, SmoothCameraFollow cameraFollow)
+            GameObject playerArcher, GameObject playerMonk, GameObject playerMage,
+            SmoothCameraFollow cameraFollow)
         {
             var eventSystemGo = new GameObject("EventSystem");
             eventSystemGo.AddComponent<EventSystem>();
@@ -866,7 +914,7 @@ namespace TinyRpg.EditorTools
             flow.levelText = levelText;
 
             var classSelect = BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer,
-                playerArcher, playerMonk, cameraFollow);
+                playerArcher, playerMonk, playerMage, cameraFollow);
             BuildTitleAndSettings(canvasGo.transform, font, classSelect);
         }
 
@@ -1055,7 +1103,7 @@ namespace TinyRpg.EditorTools
 
         static ClassSelectScreen BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
             GameObject playerLancer, GameObject playerArcher, GameObject playerMonk,
-            SmoothCameraFollow cameraFollow)
+            GameObject playerMage, SmoothCameraFollow cameraFollow)
         {
             var panelGo = new GameObject("ClassSelectPanel");
             panelGo.transform.SetParent(canvas, false);
@@ -1131,17 +1179,20 @@ namespace TinyRpg.EditorTools
             screen.lancerPrefab = playerLancer;
             screen.archerPrefab = playerArcher;
             screen.monkPrefab = playerMonk;
+            screen.magePrefab = playerMage;
             screen.spawnPosition = new Vector2(18f, 7f); // GameFlow lo actualiza al pintar la ciudad
             screen.cameraFollow = cameraFollow;
 
-            MakeClassCard(panelGo.transform, font, -450f, "class.warrior", "class.key1",
+            MakeClassCard(panelGo.transform, font, -560f, "class.warrior", "class.key1",
                 TS + "Units/Blue Units/Warrior/Warrior_Idle.png", screen, 0);
-            MakeClassCard(panelGo.transform, font, -150f, "class.lancer", "class.key2",
+            MakeClassCard(panelGo.transform, font, -280f, "class.lancer", "class.key2",
                 TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
-            MakeClassCard(panelGo.transform, font, 150f, "class.archer", "class.key3",
+            MakeClassCard(panelGo.transform, font, 0f, "class.archer", "class.key3",
                 TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, 2);
-            MakeClassCard(panelGo.transform, font, 450f, "class.monk", "class.key4",
+            MakeClassCard(panelGo.transform, font, 280f, "class.monk", "class.key4",
                 TS + "Units/Blue Units/Monk/Idle.png", screen, 3);
+            MakeClassCard(panelGo.transform, font, 560f, "class.mage", "class.key5",
+                "Assets/Game/Sprites/Mage/Mage_Idle.png", screen, 4);
             return screen;
         }
 

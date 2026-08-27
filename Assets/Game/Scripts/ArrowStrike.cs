@@ -40,7 +40,10 @@ namespace TinyRpg
             int order = YSorter.OrderForY(target.y) + 4;
 
             // Marcador de impacto fijado: a partir de aqui lo ve cualquier unidad.
+            // Como hijo del strike: si GameFlow destruye el strike al cambiar de
+            // mapa, el anillo cae con el (no queda huerfano).
             ring = AttackVfx.CreateRing(radius, new Color(1f, 0.45f, 0.3f, 0.6f), order);
+            ring.transform.SetParent(transform, false);
             ring.transform.position = target;
 
             // La flecha cae durante el ultimo tramo del retardo.
@@ -50,6 +53,7 @@ namespace TinyRpg
             if (VfxLibrary.ArrowSprite != null)
             {
                 arrow = new GameObject("FallingArrow");
+                arrow.transform.SetParent(transform, false);
                 var sr = arrow.AddComponent<SpriteRenderer>();
                 sr.sprite = VfxLibrary.ArrowSprite;
                 sr.sortingOrder = order + 2;

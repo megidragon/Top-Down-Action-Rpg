@@ -45,10 +45,12 @@ namespace TinyRpg
             ["class.lancer"] = ("Lancero", "Lancer"),
             ["class.archer"] = ("Arquero", "Archer"),
             ["class.monk"] = ("Monje", "Monk"),
+            ["class.mage"] = ("Mago", "Mage"),
             ["class.key1"] = ("Tecla 1", "Key 1"),
             ["class.key2"] = ("Tecla 2", "Key 2"),
             ["class.key3"] = ("Tecla 3", "Key 3"),
             ["class.key4"] = ("Tecla 4", "Key 4"),
+            ["class.key5"] = ("Tecla 5", "Key 5"),
 
             // HUD y juego
             ["hud.controls"] = (

@@ -58,7 +58,7 @@ namespace TinyRpg
                 yield return new WaitForSecondsRealtime(0.3f);
                 Capture("00_class_select");
                 yield return new WaitForSecondsRealtime(0.5f);
-                ClassSelectScreen.Instance.Choose(3); // verificar el Monje
+                ClassSelectScreen.Instance.Choose(4); // verificar el Mago
             }
 
             yield return new WaitForSecondsRealtime(0.9f);
@@ -116,7 +116,40 @@ namespace TinyRpg
                     (Vector2)enemy.transform.position + new Vector2(3.2f, 0.5f);
                 Camera.main?.GetComponent<SmoothCameraFollow>()?.SnapToTarget();
             }
-            yield return new WaitForSecondsRealtime(2.5f);
+
+            // Diagnostico: ¿el animador del enemigo avanza o esta congelado?
+            if (enemy != null)
+            {
+                var ea = enemy.GetComponentInChildren<Animator>();
+                var esr = enemy.GetComponentInChildren<SpriteRenderer>();
+                var d = new System.Text.StringBuilder();
+                d.AppendLine("enemigo: " + enemy.name + " tier " + enemy.tier);
+                if (ea == null) d.AppendLine("animator: NULL");
+                else
+                {
+                    var st = ea.GetCurrentAnimatorStateInfo(0);
+                    d.AppendLine("controller: " + (ea.runtimeAnimatorController != null
+                        ? ea.runtimeAnimatorController.name : "NULL")
+                        + " enabled: " + ea.isActiveAndEnabled + " speed: " + ea.speed
+                        + " culling: " + ea.cullingMode);
+                    d.AppendLine("estado len: " + st.length + " loop: " + st.loop
+                        + " t: " + st.normalizedTime.ToString("F3"));
+                    var clips = ea.GetCurrentAnimatorClipInfo(0);
+                    d.AppendLine("clip: " + (clips.Length > 0 && clips[0].clip != null
+                        ? clips[0].clip.name + " looping:" + clips[0].clip.isLooping
+                        + " len:" + clips[0].clip.length : "SIN CLIP"));
+                    d.AppendLine("sprite A: " + (esr != null && esr.sprite != null ? esr.sprite.name : "NULL"));
+                }
+                yield return new WaitForSecondsRealtime(0.7f);
+                if (ea != null)
+                {
+                    d.AppendLine("t tras 0.7s: " + ea.GetCurrentAnimatorStateInfo(0).normalizedTime.ToString("F3"));
+                    d.AppendLine("sprite B: " + (esr != null && esr.sprite != null ? esr.sprite.name : "NULL"));
+                }
+                File.WriteAllText("Library/tinyrpg_debug_enemy.txt", d.ToString());
+            }
+
+            yield return new WaitForSecondsRealtime(1.8f);
             Capture("04_gameplay_b");
             yield return new WaitForSecondsRealtime(2f);
             Capture("05_gameplay_c");

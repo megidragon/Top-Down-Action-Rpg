@@ -113,7 +113,7 @@ namespace TinyRpg
                 if (ally != null) taken.Add(ally.classIndex);
 
             var candidates = new System.Collections.Generic.List<int>();
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++) // 5 clases: guerrero/lancero/arquero/monje/mago
                 if (!taken.Contains(i)) candidates.Add(i);
             return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : -1;
         }
@@ -155,6 +155,8 @@ namespace TinyRpg
             foreach (var stray in FindObjectsByType<ArrowProjectile>(FindObjectsSortMode.None))
                 Destroy(stray.gameObject);
             foreach (var stray in FindObjectsByType<ArrowStrike>(FindObjectsSortMode.None))
+                Destroy(stray.gameObject);
+            foreach (var stray in FindObjectsByType<MagicCircleBlast>(FindObjectsSortMode.None))
                 Destroy(stray.gameObject);
 
             content = MapPainter.CreateContentRoot();

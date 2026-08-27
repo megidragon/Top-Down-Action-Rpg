@@ -17,6 +17,7 @@ namespace TinyRpg.EditorTools
         const string BuildRequest = "Library/tinyrpg_build_request.txt";
         const string VerifyRequest = "Library/tinyrpg_verify_request.txt";
         const string PlayerRequest = "Library/tinyrpg_player_request.txt";
+        const string ReimportRequest = "Library/tinyrpg_reimport_request.txt";
         const string ResultFile = "Library/tinyrpg_build_result.txt";
 
         static double nextCheck;
@@ -52,6 +53,22 @@ namespace TinyRpg.EditorTools
                 {
                     File.WriteAllText(ResultFile, "FAIL " + e);
                 }
+                return;
+            }
+
+            if (File.Exists(ReimportRequest))
+            {
+                File.Delete(ReimportRequest);
+                // Reimportacion forzada: repara referencias en memoria rotas por
+                // assets recreados desde fuera del editor.
+                AssetDatabase.ImportAsset("Assets/Game/Anim",
+                    ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+                AssetDatabase.ImportAsset("Assets/Game/Prefabs",
+                    ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+                AssetDatabase.ImportAsset("Assets/Game/Sprites",
+                    ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+                AssetDatabase.Refresh();
+                File.WriteAllText(ResultFile, "REIMPORT OK " + DateTime.Now.ToString("HH:mm:ss"));
                 return;
             }
 

@@ -20,7 +20,7 @@ namespace TinyRpg
         public enum Order { Auto, Attack, Flee }
         public static Order CurrentOrder { get; private set; } = Order.Auto;
 
-        public int classIndex; // 0 guerrero, 1 lancero, 2 arquero, 3 monje
+        public int classIndex; // 0 guerrero, 1 lancero, 2 arquero, 3 monje, 4 mago
         public float preferredDistance = 1.2f;
         public float followDistance = 1.7f;
 
@@ -49,7 +49,7 @@ namespace TinyRpg
             stats.team = 0;
             stats.Died += OnDied;
 
-            if (combat is ArcherCombat) preferredDistance = 4.5f;
+            if (combat is ArcherCombat || combat is MageCombat) preferredDistance = 4.5f;
         }
 
         void OnEnable() { if (!Active.Contains(this)) Active.Add(this); }
@@ -202,6 +202,21 @@ namespace TinyRpg
                     combat.OnPrimaryDown(aim);
                     StartCoroutine(ReleaseArtillery(target.transform));
                     attackPauseTimer = Random.Range(1.6f, 2.4f);
+                }
+                return;
+            }
+
+            if (combat is MageCombat)
+            {
+                if (dist > 3f && dist <= 7f && stats.Energy >= 25f && Random.value < 0.45f)
+                {
+                    combat.OnSecondaryDown(aim); // circulo magico
+                    attackPauseTimer = Random.Range(1.3f, 2f);
+                }
+                else if (dist <= 7.5f && stats.Energy >= 25f)
+                {
+                    combat.OnPrimaryDown(aim); // proyectil
+                    attackPauseTimer = Random.Range(0.9f, 1.5f);
                 }
                 return;
             }
@@ -376,7 +391,8 @@ namespace TinyRpg
         {
             var screen = ClassSelectScreen.Instance;
             if (screen == null) return null;
-            var prefab = classIndex == 3 ? screen.monkPrefab
+            var prefab = classIndex == 4 ? screen.magePrefab
+                       : classIndex == 3 ? screen.monkPrefab
                        : classIndex == 2 ? screen.archerPrefab
                        : classIndex == 1 ? screen.lancerPrefab : screen.warriorPrefab;
             if (prefab == null) return null;

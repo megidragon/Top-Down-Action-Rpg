@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 namespace TinyRpg
 {
     /// Pantalla inicial de seleccion de clase. El juego queda en pausa
-    /// (timeScale 0) hasta que el jugador elige Guerrero o Lancero; Arquero y
-    /// Monje se muestran ennegrecidos y no son seleccionables todavia.
+    /// (timeScale 0) hasta que el jugador elige una de las 5 clases
+    /// (teclas 1-5: Guerrero, Lancero, Arquero, Monje, Mago).
     /// Tras morir y pulsar R la escena se recarga y se vuelve a elegir.
     public class ClassSelectScreen : MonoBehaviour
     {
@@ -16,6 +16,7 @@ namespace TinyRpg
         public GameObject lancerPrefab;
         public GameObject archerPrefab;
         public GameObject monkPrefab;
+        public GameObject magePrefab;
         public Vector2 spawnPosition;
         public SmoothCameraFollow cameraFollow;
 
@@ -69,13 +70,15 @@ namespace TinyRpg
             else if (keyboard.digit2Key.wasPressedThisFrame) Choose(1);
             else if (keyboard.digit3Key.wasPressedThisFrame) Choose(2);
             else if (keyboard.digit4Key.wasPressedThisFrame) Choose(3);
+            else if (keyboard.digit5Key.wasPressedThisFrame) Choose(4);
         }
 
-        /// 0 = Guerrero, 1 = Lancero, 2 = Arquero, 3 = Monje.
+        /// 0 = Guerrero, 1 = Lancero, 2 = Arquero, 3 = Monje, 4 = Mago.
         public void Choose(int classIndex)
         {
             if (HasChosen) return;
-            var prefab = classIndex == 3 ? monkPrefab
+            var prefab = classIndex == 4 ? magePrefab
+                       : classIndex == 3 ? monkPrefab
                        : classIndex == 2 ? archerPrefab
                        : classIndex == 1 ? lancerPrefab : warriorPrefab;
             if (prefab == null) return;

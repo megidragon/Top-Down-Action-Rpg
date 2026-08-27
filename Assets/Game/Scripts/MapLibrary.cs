@@ -40,7 +40,7 @@ namespace TinyRpg
         public RuntimeAnimatorController fireController;
 
         [Header("Unidades")]
-        public GameObject[] enemyPrefabs; // Warrior, Lancer, Archer, Monk (rojos)
+        public GameObject[] enemyPrefabs; // Warrior, Lancer, Archer, Monk, Mage (rojos)
         public GameObject sheepPrefab;
         public GameObject pawnNpcPrefab;  // NPC ambiental (TownNpc)
 
