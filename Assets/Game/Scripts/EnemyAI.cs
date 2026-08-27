@@ -7,6 +7,8 @@ namespace TinyRpg
     /// IA enemiga con el mismo set de habilidades que el jugador:
     /// patrulla alrededor de su campamento, persigue al rival mas cercano
     /// (jugador o aliados) al detectarlo y ataca segun su clase.
+    /// El aggro es PERMANENTE: no se puede romper huyendo, ni alejando al
+    /// enemigo de su punto de aparicion.
     ///
     /// Tiene 3 niveles de inteligencia (tier), asignados por GameFlow segun el
     /// nivel del bosque:
@@ -23,7 +25,6 @@ namespace TinyRpg
         public static readonly List<EnemyAI> Active = new List<EnemyAI>();
 
         public float aggroRange = 7f;
-        public float leashRange = 16f;
         public float wanderRadius = 3.5f;
         public float sweepUseRange = 1.6f;
         public float stabUseRange = 2.6f;
@@ -41,7 +42,7 @@ namespace TinyRpg
         UnitAnimator unitAnimator;
         Rigidbody2D rb;
 
-        enum State { Patrol, Chase, Return }
+        enum State { Patrol, Chase }
         State state = State.Patrol;
 
         // Un cadaver sigue ~1.5 s en Active mientras se desvanece: no cuenta.
@@ -192,7 +193,6 @@ namespace TinyRpg
             ResolveFoe();
             float distToFoe = foe != null
                 ? Vector2.Distance(transform.position, foe.position) : float.MaxValue;
-            float distToHome = Vector2.Distance(transform.position, home);
 
             switch (state)
             {
@@ -203,20 +203,14 @@ namespace TinyRpg
                     break;
 
                 case State.Chase:
-                    if (foe == null || distToHome > leashRange || distToFoe > aggroRange * 1.8f)
+                    // Aggro permanente: una vez detectado, persigue sin importar
+                    // la distancia. Solo vuelve a patrullar si no queda rival vivo.
+                    if (foe == null)
                     {
-                        state = State.Return;
+                        state = State.Patrol;
                         break;
                     }
                     TryCombatActions(distToFoe);
-                    break;
-
-                case State.Return:
-                    // Histeresis: no re-aggro hasta estar de vuelta dentro del leash.
-                    if (distToHome < 1.5f) state = State.Patrol;
-                    else if (foe != null && distToFoe <= aggroRange * 0.8f
-                             && distToHome < leashRange * 0.85f && HasLineOfSight(foe))
-                        state = State.Chase;
                     break;
             }
         }
@@ -437,12 +431,6 @@ namespace TinyRpg
                         desired += Separation(pos) * 0.6f;
                         if (desired.sqrMagnitude > 1f) desired.Normalize();
                     }
-                    break;
-
-                case State.Return:
-                    desired = (home - pos).normalized;
-                    motor.AimDirection = desired;
-                    speedScale = 0.7f;
                     break;
             }
 

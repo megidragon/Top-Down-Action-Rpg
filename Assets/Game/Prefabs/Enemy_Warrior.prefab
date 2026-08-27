@@ -608,7 +608,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   aggroRange: 7
-  leashRange: 16
   wanderRadius: 3.5
   sweepUseRange: 1.6
   stabUseRange: 2.6
