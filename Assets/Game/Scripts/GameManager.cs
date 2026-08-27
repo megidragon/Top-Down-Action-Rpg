@@ -107,6 +107,8 @@ namespace TinyRpg
             if (keyboard != null && keyboard.rKey.wasPressedThisFrame && gameOver)
             {
                 Player = null;
+                // Reintentar va directo a elegir clase, sin pasar por el titulo.
+                TitleScreen.SkipTitleOnce = true;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }

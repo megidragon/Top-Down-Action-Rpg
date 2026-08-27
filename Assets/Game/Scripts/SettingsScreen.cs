@@ -23,10 +23,12 @@ namespace TinyRpg
         public Slider effectsSlider;
         public Slider musicSlider;
 
-        void Start()
+        // OJO: este componente vive en un panel que la escena guarda INACTIVO,
+        // asi que Start() se difiere hasta la primera apertura. Toda la
+        // inicializacion va en Awake (corre sincrono en el primer SetActive(true))
+        // y no se desactiva nada aqui: el panel ya se guarda oculto.
+        void Awake()
         {
-            if (panel != null) panel.SetActive(false);
-
             if (generalSlider != null)
             {
                 generalSlider.SetValueWithoutNotify(GameSettings.VolumeGeneral);
@@ -72,12 +74,25 @@ namespace TinyRpg
 
         public void CycleResolution(int direction)
         {
-            var all = Screen.resolutions;
-            if (all.Length == 0) return;
-            int index = GameSettings.ResolutionIndex;
-            if (index < 0) index = all.Length - 1; // recomendada = la mayor nativa
-            index = (index + direction + all.Length) % all.Length;
-            GameSettings.ResolutionIndex = index;
+            // Lista deduplicada por ancho x alto, con la "recomendada" como
+            // posicion extra al final (siempre recuperable).
+            var unique = new System.Collections.Generic.List<(int w, int h)>();
+            foreach (var r in Screen.resolutions)
+                if (!unique.Contains((r.width, r.height))) unique.Add((r.width, r.height));
+            if (unique.Count == 0) return;
+
+            int positions = unique.Count + 1; // ultima posicion = recomendada
+            int current = positions - 1;
+            if (!GameSettings.IsRecommendedResolution)
+            {
+                var actual = GameSettings.CurrentResolution;
+                int found = unique.FindIndex(u => u.w == actual.width && u.h == actual.height);
+                if (found >= 0) current = found;
+            }
+
+            int next = (current + direction + positions) % positions;
+            if (next == positions - 1) GameSettings.SetResolution(0, 0); // recomendada
+            else GameSettings.SetResolution(unique[next].w, unique[next].h);
             RefreshValues();
         }
 
@@ -107,7 +122,7 @@ namespace TinyRpg
             if (resolutionValue != null)
             {
                 var res = GameSettings.CurrentResolution;
-                string suffix = GameSettings.ResolutionIndex < 0 ? " *" : "";
+                string suffix = GameSettings.IsRecommendedResolution ? " *" : "";
                 resolutionValue.text = $"{res.width} x {res.height}{suffix}";
             }
             if (windowModeValue != null)

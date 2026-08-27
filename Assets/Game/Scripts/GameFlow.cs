@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,10 +21,22 @@ namespace TinyRpg
         LevelExit exit;
         int enemiesAlive;
         bool firstRestUsed;
+        string labelKey = "zone.town"; // rotulo actual (para refrescar al cambiar idioma)
+        int labelArg;
 
         void Awake()
         {
             Instance = this;
+        }
+
+        void OnEnable()
+        {
+            Loc.LanguageChanged += RefreshLabel;
+        }
+
+        void OnDisable()
+        {
+            Loc.LanguageChanged -= RefreshLabel;
         }
 
         void Start()
@@ -40,7 +52,7 @@ namespace TinyRpg
             InRestStop = false;
             LoadMap(ForestMaps.Town());
             exit?.Activate();
-            SetLevelLabel(Loc.T("zone.town"));
+            SetLevelLabel("zone.town");
         }
 
         void LoadLevel(int level)
@@ -53,7 +65,7 @@ namespace TinyRpg
             // Dificultad: 1 enemigo, +1 cada 3 niveles.
             int enemyCount = 1 + (level - 1) / 3;
             SpawnEnemies(data, enemyCount);
-            SetLevelLabel(string.Format(Loc.T("zone.level"), level));
+            SetLevelLabel("zone.level", level);
 
             if (enemiesAlive <= 0) exit?.Activate(); // por si no hubo sitio
         }
@@ -63,7 +75,7 @@ namespace TinyRpg
             InRestStop = true;
             LoadMap(ForestMaps.RestStop(4000 + CurrentLevel));
             exit?.Activate();
-            SetLevelLabel(Loc.T("zone.camp"));
+            SetLevelLabel("zone.camp");
         }
 
         /// El jugador cruza la salida del mapa actual.
@@ -219,9 +231,19 @@ namespace TinyRpg
             GameManager.ClearMessageIf(text);
         }
 
-        void SetLevelLabel(string label)
+        void SetLevelLabel(string key, int arg = 0)
         {
-            if (levelText != null) levelText.text = label;
+            labelKey = key;
+            labelArg = arg;
+            RefreshLabel();
+        }
+
+        void RefreshLabel()
+        {
+            if (levelText == null || string.IsNullOrEmpty(labelKey)) return;
+            string text = Loc.T(labelKey);
+            if (text.Contains("{0}")) text = string.Format(text, labelArg);
+            levelText.text = text;
         }
     }
 }

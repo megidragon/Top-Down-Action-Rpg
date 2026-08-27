@@ -782,6 +782,7 @@ namespace TinyRpg.EditorTools
 
             var controls = MakeText(canvasGo.transform, "Controls", font, 22,
                 "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. especial  |  Espacio parry o curar  |  1-4 objetos  |  E interactuar");
+            controls.gameObject.AddComponent<LocText>().key = "hud.controls";
             var controlsRt = controls.rectTransform;
             controlsRt.anchorMin = new Vector2(0.5f, 1f);
             controlsRt.anchorMax = new Vector2(0.5f, 1f);
@@ -1175,6 +1176,8 @@ namespace TinyRpg.EditorTools
                 colors.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
                 button.colors = colors;
                 UnityEventTools.AddIntPersistentListener(button.onClick, screen.Choose, classIndex);
+                cardGo.AddComponent<ButtonHover>();
+                cardGo.GetComponent<ButtonHover>().hoverScale = 1.04f;
             }
         }
 
@@ -1184,6 +1187,55 @@ namespace TinyRpg.EditorTools
 
         static void BuildTitleAndSettings(Transform canvas, Font font, ClassSelectScreen classSelect)
         {
+            // ---- Menu de pausa in-game (engranaje arriba-izquierda + ESC) ----
+            var pauseRoot = new GameObject("PauseMenu");
+            pauseRoot.transform.SetParent(canvas, false);
+            var pauseRootRt = pauseRoot.AddComponent<RectTransform>();
+            Stretch(pauseRootRt);
+            var pauseMenu = pauseRoot.AddComponent<PauseMenu>();
+
+            var gearGo = new GameObject("GearButton");
+            gearGo.transform.SetParent(pauseRoot.transform, false);
+            var gearImg = gearGo.AddComponent<Image>();
+            gearImg.sprite = LoadFirstSprite(TS + "UI Elements/Icons/Icon_10.png");
+            gearImg.preserveAspect = true;
+            var gearRt = gearImg.rectTransform;
+            gearRt.anchorMin = new Vector2(0f, 1f);
+            gearRt.anchorMax = new Vector2(0f, 1f);
+            gearRt.pivot = new Vector2(0f, 1f);
+            gearRt.anchoredPosition = new Vector2(18f, -14f);
+            gearRt.sizeDelta = new Vector2(64f, 64f);
+            var gearButton = gearGo.AddComponent<Button>();
+            gearButton.targetGraphic = gearImg;
+            UnityEventTools.AddVoidPersistentListener(gearButton.onClick, pauseMenu.Toggle);
+            gearGo.AddComponent<ButtonHover>();
+
+            var pausePanel = new GameObject("PausePanel");
+            pausePanel.transform.SetParent(pauseRoot.transform, false);
+            var ppImg = pausePanel.AddComponent<Image>();
+            ppImg.sprite = GetWhiteSprite();
+            ppImg.color = new Color(0.04f, 0.04f, 0.06f, 0.78f);
+            Stretch(ppImg.rectTransform);
+            pauseMenu.panel = pausePanel;
+
+            var pauseTitle = MakeText(pausePanel.transform, "Title", font, 58, "PAUSA");
+            pauseTitle.gameObject.AddComponent<LocText>().key = "pause.title";
+            var ptrt = pauseTitle.rectTransform;
+            ptrt.anchorMin = new Vector2(0.5f, 1f);
+            ptrt.anchorMax = new Vector2(0.5f, 1f);
+            ptrt.pivot = new Vector2(0.5f, 1f);
+            ptrt.anchoredPosition = new Vector2(0f, -160f);
+            ptrt.sizeDelta = new Vector2(700f, 90f);
+            pauseTitle.alignment = TextAnchor.MiddleCenter;
+            pauseTitle.color = new Color(1f, 0.93f, 0.75f, 1f);
+
+            MakeMenuButton(pausePanel.transform, font, "title.settings", new Vector2(0f, -20f),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, pauseMenu.OpenSettings));
+            MakeMenuButton(pausePanel.transform, font, "title.quit", new Vector2(0f, -205f),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, pauseMenu.QuitGame));
+
+            pausePanel.SetActive(false);
+
             // ---- Pantalla de titulo (encima de la seleccion de clase) ----
             var titlePanel = new GameObject("TitlePanel");
             titlePanel.transform.SetParent(canvas, false);
@@ -1237,6 +1289,7 @@ namespace TinyRpg.EditorTools
             var settings = settingsPanel.AddComponent<SettingsScreen>();
             settings.panel = settingsPanel;
             titleScreen.settingsScreen = settings;
+            pauseMenu.settingsScreen = settings;
 
             var settingsTitle = MakeText(settingsPanel.transform, "Title", font, 56, "CONFIGURACION");
             settingsTitle.gameObject.AddComponent<LocText>().key = "set.title";
@@ -1318,6 +1371,7 @@ namespace TinyRpg.EditorTools
             var button = go.AddComponent<Button>();
             button.targetGraphic = img;
             wire(button);
+            go.AddComponent<ButtonHover>();
 
             var label = MakeText(go.transform, "Label", font, 32, Loc.T(locKey));
             label.gameObject.AddComponent<LocText>().key = locKey;
@@ -1348,6 +1402,7 @@ namespace TinyRpg.EditorTools
             var button = go.AddComponent<Button>();
             button.targetGraphic = img;
             wire(button);
+            go.AddComponent<ButtonHover>();
 
             var label = MakeText(go.transform, "Label", font, 28, Loc.T(locKey));
             label.gameObject.AddComponent<LocText>().key = locKey;
@@ -1414,6 +1469,7 @@ namespace TinyRpg.EditorTools
             var button = go.AddComponent<Button>();
             button.targetGraphic = img;
             wire(button);
+            go.AddComponent<ButtonHover>();
 
             var label = MakeText(go.transform, "Label", font, 30, arrow);
             Stretch(label.rectTransform);

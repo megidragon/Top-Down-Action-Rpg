@@ -9,7 +9,8 @@ namespace TinyRpg
     public static class GameSettings
     {
         const string KeyLanguage = "tinyrpg.language";
-        const string KeyResolution = "tinyrpg.resolution";
+        const string KeyResW = "tinyrpg.res.w";
+        const string KeyResH = "tinyrpg.res.h";
         const string KeyFullscreen = "tinyrpg.fullscreen";
         const string KeyShake = "tinyrpg.shake";
         const string KeyVolGeneral = "tinyrpg.vol.general";
@@ -18,7 +19,8 @@ namespace TinyRpg
 
         static bool loaded;
         static GameLanguage language;
-        static int resolutionIndex = -1; // -1 = recomendada (nativa)
+        static int resWidth;  // 0 = recomendada (nativa)
+        static int resHeight;
         static bool fullscreen;
         static bool screenShake;
         static float volGeneral, volEffects, volMusic;
@@ -67,11 +69,22 @@ namespace TinyRpg
             set { EnsureLoaded(); volMusic = Mathf.Clamp01(value); PlayerPrefs.SetFloat(KeyVolMusic, volMusic); PlayerPrefs.Save(); }
         }
 
-        /// Indice dentro de Screen.resolutions; -1 = resolucion nativa recomendada.
-        public static int ResolutionIndex
+        /// true si esta activa la resolucion recomendada (nativa).
+        public static bool IsRecommendedResolution
         {
-            get { EnsureLoaded(); return resolutionIndex; }
-            set { EnsureLoaded(); resolutionIndex = value; PlayerPrefs.SetInt(KeyResolution, value); PlayerPrefs.Save(); ApplyResolution(); }
+            get { EnsureLoaded(); return resWidth <= 0 || resHeight <= 0; }
+        }
+
+        /// Fija una resolucion concreta; (0,0) vuelve a la recomendada.
+        public static void SetResolution(int width, int height)
+        {
+            EnsureLoaded();
+            resWidth = width;
+            resHeight = height;
+            PlayerPrefs.SetInt(KeyResW, width);
+            PlayerPrefs.SetInt(KeyResH, height);
+            PlayerPrefs.Save();
+            ApplyResolution();
         }
 
         public static Resolution CurrentResolution
@@ -79,9 +92,12 @@ namespace TinyRpg
             get
             {
                 EnsureLoaded();
-                var all = Screen.resolutions;
-                if (resolutionIndex >= 0 && resolutionIndex < all.Length) return all[resolutionIndex];
-                return Screen.currentResolution; // recomendada
+                if (!IsRecommendedResolution)
+                {
+                    foreach (var r in Screen.resolutions)
+                        if (r.width == resWidth && r.height == resHeight) return r;
+                }
+                return Screen.currentResolution; // recomendada (o guardada ya no disponible)
             }
         }
 
@@ -90,7 +106,8 @@ namespace TinyRpg
             if (loaded) return;
             loaded = true;
             language = (GameLanguage)PlayerPrefs.GetInt(KeyLanguage, 0);
-            resolutionIndex = PlayerPrefs.GetInt(KeyResolution, -1);
+            resWidth = PlayerPrefs.GetInt(KeyResW, 0);
+            resHeight = PlayerPrefs.GetInt(KeyResH, 0);
             fullscreen = PlayerPrefs.GetInt(KeyFullscreen, 1) == 1;
             screenShake = PlayerPrefs.GetInt(KeyShake, 1) == 1;
             volGeneral = PlayerPrefs.GetFloat(KeyVolGeneral, 1f);

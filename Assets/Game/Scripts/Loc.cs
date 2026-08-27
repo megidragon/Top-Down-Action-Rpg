@@ -36,6 +36,9 @@ namespace TinyRpg
             ["set.vol.music"] = ("Musica", "Music"),
             ["set.back"] = ("Volver", "Back"),
 
+            // Pausa
+            ["pause.title"] = ("PAUSA", "PAUSED"),
+
             // Seleccion de clase
             ["class.title"] = ("ELIGE TU CLASE", "CHOOSE YOUR CLASS"),
             ["class.warrior"] = ("Guerrero", "Warrior"),

@@ -8,6 +8,10 @@ namespace TinyRpg
     {
         public static TitleScreen Instance { get; private set; }
 
+        /// Tras morir y pulsar R, la escena se recarga saltando el titulo:
+        /// se va directo a elegir clase de nuevo en la ciudad.
+        public static bool SkipTitleOnce;
+
         public GameObject panel;
         public SettingsScreen settingsScreen;
         public ClassSelectScreen classSelect;
@@ -21,7 +25,16 @@ namespace TinyRpg
         {
             GameSettings.ApplyAll();
             Time.timeScale = 0f;
-            if (panel != null) panel.SetActive(true);
+            if (SkipTitleOnce)
+            {
+                SkipTitleOnce = false;
+                if (panel != null) panel.SetActive(false);
+                classSelect?.Show();
+            }
+            else if (panel != null)
+            {
+                panel.SetActive(true);
+            }
         }
 
         void OnDestroy()

@@ -9,6 +9,8 @@ namespace TinyRpg
     {
         public float triggerRadius = 1.2f;
 
+        public bool IsActive => active;
+
         bool active;
         bool consumed;
         GameObject ring;
@@ -48,6 +50,23 @@ namespace TinyRpg
             var mr = textGo.GetComponent<MeshRenderer>();
             mr.sharedMaterial = label.font.material;
             mr.sortingOrder = 31000;
+        }
+
+        void OnEnable()
+        {
+            Loc.LanguageChanged += RefreshLabel;
+        }
+
+        void OnDisable()
+        {
+            Loc.LanguageChanged -= RefreshLabel;
+        }
+
+        void RefreshLabel()
+        {
+            if (label == null) return;
+            label.text = active ? Loc.T(labelText)
+                                : Loc.T(labelText) + "\n" + Loc.T("exit.locked");
         }
 
         public void Activate()
