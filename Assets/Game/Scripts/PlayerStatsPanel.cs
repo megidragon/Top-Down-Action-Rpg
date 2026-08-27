@@ -50,6 +50,9 @@ namespace TinyRpg
                 $"{player.name.Replace("Player_", "")}\n" +
                 $"{Loc.T("stats.health")}  {Mathf.CeilToInt(stats.Health)}/{Mathf.CeilToInt(stats.maxHealth)}\n" +
                 $"{Loc.T("stats.energy")}  {Mathf.CeilToInt(stats.Energy)}/{Mathf.CeilToInt(stats.maxEnergy)}\n" +
+                (stats.usesMana
+                    ? $"{Loc.T("stats.mana")}  {Mathf.CeilToInt(stats.Mana)}/{Mathf.CeilToInt(stats.MaxMana)}\n"
+                    : "") +
                 (attrs != null
                     ? $"{Loc.T("stats.strength")}  {attrs.strength}\n" +
                       $"{Loc.T("stats.defense")}  {attrs.defense} (-{attrs.defense * 2}%)\n" +

@@ -10,10 +10,12 @@ namespace TinyRpg
     public class CharacterMotor : MonoBehaviour
     {
         public float moveSpeed = 4.6f;
-        public float dashSpeed = 15f;
-        public float dashDuration = 0.22f;
-        public float dashCooldown = 0.35f;
-        public float dashEnergyCost = 25f;
+        // Dash: mas barato y mas seco que antes (costaba 25 y duraba 0.22 s).
+        // Recorre casi lo mismo porque se compensa con mas velocidad punta.
+        public float dashSpeed = 18f;
+        public float dashDuration = 0.17f;
+        public float dashCooldown = 0.3f;
+        public float dashEnergyCost = 15f;
         public float knockbackDecay = 14f; // unidades/s^2 de frenado del empuje
 
         [NonSerialized] public Vector2 AimDirection = Vector2.right; // hacia el raton (jugador) o el objetivo (IA)

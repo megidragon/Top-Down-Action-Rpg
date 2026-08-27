@@ -128,6 +128,7 @@ MonoBehaviour:
   renderers:
   - {fileID: 3802258605111038032}
   isStatic: 0
+  orderOffset: 0
 --- !u!1 &8746671677096605099
 GameObject:
   m_ObjectHideFlags: 0

@@ -86,11 +86,11 @@ namespace TinyRpg
 
                 if (near)
                 {
-                    var keyboard = Keyboard.current;
-                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame
-                        && InteractGate.TryConsume())
+                    GameInput.Touch?.RequestInteract();
+                    if (GameInput.InteractPressed && InteractGate.TryConsume())
                     {
                         stats.Heal(stats.maxHealth);
+                        stats.RestoreMana(); // el mana SOLO se repone aqui
                         player.GetComponent<UnitAnimator>()?.FlashHit(new Color(0.55f, 1f, 0.6f, 1f));
                         AttackVfx.SpawnArc(player.transform.position, Vector2.up, 1.1f, 180f,
                             new Color(1f, 0.75f, 0.35f, 0.5f),
@@ -103,6 +103,7 @@ namespace TinyRpg
                         {
                             if (ally == null || ally.Stats == null || ally.Stats.IsDead) continue;
                             ally.Stats.Heal(ally.Stats.maxHealth);
+                            ally.Stats.RestoreMana();
                             ally.GetComponent<UnitAnimator>()?.FlashHit(new Color(0.55f, 1f, 0.6f, 1f));
                         }
                     }

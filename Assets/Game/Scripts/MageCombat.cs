@@ -9,7 +9,9 @@ namespace TinyRpg
     ///  - Click der.: fija el circulo magico en el cursor (alcance limitado) y
     ///    tras un retardo estalla en area — telegrafiado y esquivable, como la
     ///    lluvia del arquero pero instantaneo de lanzar y de menor radio.
-    /// Conserva dash y parry del kit comun.
+    ///  - Espacio: rayo de hielo hasta el suelo bajo el raton. NO tiene parry:
+    ///    a cambio siembra espinas por todo el recorrido que hieren durante
+    ///    unos segundos. Cuesta MANA, que solo se recupera en la fogata.
     public class MageCombat : CharacterCombat
     {
         [Header("Proyectil magico (click izq.)")]
@@ -32,6 +34,62 @@ namespace TinyRpg
             if (!stats.TrySpendEnergy(attackEnergyCost)) return;
 
             actionRoutine = StartCoroutine(BoltRoutine(aimDir.normalized));
+        }
+
+        [Header("Rayo de hielo (Espacio)")]
+        public float iceRayRange = 8.5f;
+        public float iceManaCost = 40f;
+        public float iceRayCastTime = 0.35f;
+        public float iceRayRecovery = 0.4f;
+
+        /// El mago cambia el parry por el rayo de hielo.
+        public override void OnSpecial(Vector2 aimDir)
+        {
+            if (IsBusy || motor.IsDashing || attackRecoveryTimer > 0f) return;
+            if (!stats.TrySpendMana(iceManaCost)) return;
+
+            actionRoutine = StartCoroutine(IceRayRoutine());
+        }
+
+        IEnumerator IceRayRoutine()
+        {
+            Vector2 origin = AttackOrigin;
+            Vector2 target = ClampToRay(AimPoint);
+            Vector2 dir = (target - origin).sqrMagnitude > 0.001f
+                ? (target - origin).normalized : Vector2.right;
+
+            IsAttacking = true;
+            motor.MoveControl = 0.2f;
+            unitAnimator?.SetFacing(dir.x);
+            unitAnimator?.PlayAction("Attack2", iceRayCastTime);
+
+            yield return new WaitForSeconds(iceRayCastTime * 0.5f);
+
+            if (!stats.IsDead)
+            {
+                // Destello del rayo y siembra de espinas por todo el recorrido.
+                AttackVfx.SpawnArc(origin, dir, Vector2.Distance(origin, target), 8f,
+                    new Color(0.65f, 0.9f, 1f, 0.55f),
+                    YSorter.OrderForY(origin.y) + 6, 0.22f);
+                IceSpikeField.Spawn(origin, target, stats.team, isPlayer);
+            }
+
+            yield return new WaitForSeconds(iceRayCastTime * 0.5f);
+
+            IsAttacking = false;
+            motor.MoveControl = 1f;
+            attackRecoveryTimer = Mathf.Max(attackRecoveryTimer, iceRayRecovery);
+            actionRoutine = null;
+        }
+
+        /// El rayo llega hasta el suelo bajo el raton, con tope de alcance.
+        Vector2 ClampToRay(Vector2 point)
+        {
+            Vector2 origin = AttackOrigin;
+            Vector2 to = point - origin;
+            if (to.magnitude > iceRayRange)
+                point = origin + to.normalized * iceRayRange;
+            return point;
         }
 
         public override void OnSecondaryDown(Vector2 aimDir)

@@ -9,11 +9,13 @@ namespace TinyRpg
         public static Sprite ArrowSprite { get; private set; }
         public static Sprite MagicBoltSprite { get; private set; }
         public static Sprite MagicCircleSprite { get; private set; }
+        public static Sprite IceSpikeSprite { get; private set; }
 
         public Material vfxMaterial;
         public Sprite arrowSprite;
         public Sprite magicBoltSprite;
         public Sprite magicCircleSprite;
+        public Sprite iceSpikeSprite;
 
         void Awake()
         {
@@ -21,6 +23,7 @@ namespace TinyRpg
             ArrowSprite = arrowSprite;
             MagicBoltSprite = magicBoltSprite;
             MagicCircleSprite = magicCircleSprite;
+            IceSpikeSprite = iceSpikeSprite;
         }
     }
 }

@@ -54,11 +54,14 @@ namespace TinyRpg
 
             // HUD y juego
             ["hud.controls"] = (
-                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. especial  |  Espacio parry o curar  |  1-4 objetos  |  E interactuar  |  C/V ordenes aliados",
-                "WASD move  |  Shift dash  |  Left click attack  |  Right click special  |  Space parry or heal  |  1-4 items  |  E interact  |  C/V ally orders"),
+                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. especial  |  Espacio parry / curar / hielo  |  1-4 objetos  |  E interactuar  |  C/V ordenes aliados",
+                "WASD move  |  Shift dash  |  Left click attack  |  Right click special  |  Space parry / heal / ice  |  1-4 items  |  E interact  |  C/V ally orders"),
             ["zone.town"] = ("Ciudad", "Town"),
-            ["zone.camp"] = ("Campamento", "Camp"),
+            ["zone.camp"] = ("Campamento - Nivel {0}", "Camp - Level {0}"),
             ["zone.level"] = ("Bosque - Nivel {0}", "Forest - Level {0}"),
+            ["splash.level"] = ("NIVEL {0}", "LEVEL {0}"),
+            ["splash.town"] = ("LA CIUDAD", "THE TOWN"),
+            ["splash.camp"] = ("CAMPAMENTO", "REST CAMP"),
             ["exit.enter_forest"] = ("ENTRAR AL BOSQUE", "ENTER THE FOREST"),
             ["exit.next"] = ("SIGUIENTE NIVEL", "NEXT LEVEL"),
             ["exit.rest"] = ("SEGUIR ADENTRANDOSE", "VENTURE DEEPER"),
@@ -68,8 +71,39 @@ namespace TinyRpg
                 "YOU DIED IN THE FOREST\nThe run ends here.\nPress R to retry"),
             ["msg.victory"] = ("¡HAS ENCONTRADO EL TESORO DEL BOSQUE!\n\nLa leyenda era cierta.\nPulsa R para una nueva expedicion",
                 "YOU FOUND THE FOREST TREASURE!\n\nThe legend was true.\nPress R for a new expedition"),
+            // Texto flotante al beber un elixir
+            ["fx.strength"] = ("+{0} FUERZA", "+{0} STRENGTH"),
+            ["fx.defense"] = ("+{0} DEFENSA", "+{0} DEFENSE"),
+            ["fx.speed"] = ("+{0} VELOCIDAD", "+{0} SPEED"),
+            ["fx.energy"] = ("+{0} ENERGIA", "+{0} ENERGY"),
+
+            // Controles tactiles (movil)
+            ["touch.attack"] = ("ATQ", "ATK"),
+            ["touch.special"] = ("ESP", "SPC"),
+            ["touch.parry"] = ("PARRY", "PARRY"),
+            ["touch.dash"] = ("DASH", "DASH"),
+            ["touch.interact"] = ("USAR", "USE"),
+            ["touch.ally_attack"] = ("¡AL\nATAQUE!", "ALL\nOUT!"),
+            ["touch.ally_flee"] = ("HUID", "FLEE"),
+            ["settings.touch"] = ("Controles tactiles", "Touch controls"),
+
+            // Escena de pruebas (Lab)
+            ["lab.title"] = ("LAB · Coliseo", "LAB · Colosseum"),
+            ["lab.keys"] = (
+                "F1-F5  invocar enemigo (guerrero/lancero/arquero/monje/mago)\nF6  limpiar enemigos\nF7  curar grupo\nF8  invocar aliado\nF9  torneo de IAs (guerrero)\nF10  liga: 5 clases x 6 algoritmos",
+                "F1-F5  spawn enemy (warrior/lancer/archer/monk/mage)\nF6  clear enemies\nF7  heal party\nF8  spawn ally\nF9  combat AI tournament"),
+
             ["hint.rest"] = ("[E] descansar", "[E] rest"),
             ["hint.buy"] = ("[E] comprar", "[E] buy"),
+
+            // Nombres de lo que vende el mercader
+            ["item.potion_small"] = ("Pocion pequena", "Small potion"),
+            ["item.potion_medium"] = ("Pocion mediana", "Medium potion"),
+            ["item.potion_large"] = ("Pocion grande", "Large potion"),
+            ["item.elixir_strength"] = ("Elixir de fuerza", "Strength elixir"),
+            ["item.elixir_defense"] = ("Elixir de defensa", "Defense elixir"),
+            ["item.elixir_speed"] = ("Elixir de velocidad", "Speed elixir"),
+            ["item.elixir_energy"] = ("Elixir de energia", "Energy elixir"),
             ["hint.recruit"] = ("[E] reclutar", "[E] recruit"),
             ["ally.free"] = ("GRATIS", "FREE"),
             ["msg.treasure"] = ("¡EL TESORO DEL BOSQUE ES TUYO! +{0} monedas\nLa leyenda era cierta... y el bosque continua.",
@@ -81,6 +115,7 @@ namespace TinyRpg
             // Panel de estadisticas
             ["stats.health"] = ("Vida", "Health"),
             ["stats.energy"] = ("Energia", "Energy"),
+            ["stats.mana"] = ("Mana", "Mana"),
             ["stats.strength"] = ("Fuerza", "Strength"),
             ["stats.defense"] = ("Defensa", "Defense"),
             ["stats.speed"] = ("Velocidad", "Speed"),

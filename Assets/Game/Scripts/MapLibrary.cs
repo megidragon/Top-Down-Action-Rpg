@@ -52,6 +52,7 @@ namespace TinyRpg
         public Sprite elixirStrengthIcon;
         public Sprite elixirDefenseIcon;
         public Sprite elixirSpeedIcon;
+        public Sprite elixirEnergyIcon;
 
         void Awake()
         {

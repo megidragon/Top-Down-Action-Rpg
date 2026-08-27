@@ -1,11 +1,12 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace TinyRpg
 {
-    /// Controles del jugador:
-    ///  WASD mover (diagonales a la misma velocidad) | Shift dash | Click izq. barrido
-    ///  Click der. estocada | Espacio parry. Todo apunta hacia el raton.
+    /// Controles del jugador. La entrada concreta la resuelve GameInput:
+    ///  - Escritorio: WASD mover | Shift dash | Click izq. barrido |
+    ///    Click der. estocada | Espacio parry. Todo apunta hacia el raton.
+    ///  - Movil: stick flotante, botones de accion arrastrables para apuntar
+    ///    y auto-mira al enemigo mas cercano en los toques secos.
     [RequireComponent(typeof(CharacterMotor))]
     [RequireComponent(typeof(CharacterCombat))]
     [RequireComponent(typeof(CharacterStats))]
@@ -53,61 +54,43 @@ namespace TinyRpg
             // atravesarlo y disparar ataques ni gastar energia por debajo.
             if (Time.timeScale <= 0f) return;
 
-            var keyboard = Keyboard.current;
-            var mouse = Mouse.current;
-            if (keyboard == null || mouse == null) return;
+            // --- Movimiento (normalizado: diagonal = misma velocidad) ---
+            motor.SetMoveInput(GameInput.Move);
 
-            // --- Movimiento WASD (normalizado: diagonal = misma velocidad) ---
-            Vector2 move = Vector2.zero;
-            if (keyboard.wKey.isPressed) move.y += 1f;
-            if (keyboard.sKey.isPressed) move.y -= 1f;
-            if (keyboard.dKey.isPressed) move.x += 1f;
-            if (keyboard.aKey.isPressed) move.x -= 1f;
-            if (move.sqrMagnitude > 1f) move.Normalize();
-            motor.SetMoveInput(move);
-
-            // --- Apuntado con el raton (relativo al personaje) ---
+            // --- Apuntado: raton en escritorio, arrastre o auto-mira en tactil ---
             if (cam == null) cam = Camera.main;
-            if (cam != null)
-            {
-                Vector3 mouseWorld = cam.ScreenToWorldPoint(mouse.position.ReadValue());
-                combat.AimPoint = mouseWorld;
-                Vector2 aim = (Vector2)mouseWorld - combat.AttackOrigin;
-                if (aim.sqrMagnitude > 0.001f) AimDirection = aim.normalized;
-            }
+            GameInput.ResolveAim(combat.AttackOrigin, AimDirection,
+                out Vector2 aimDir, out Vector2 aimPoint);
+            combat.AimPoint = aimPoint;
+            AimDirection = aimDir;
             motor.AimDirection = AimDirection;
             if (!combat.IsBusy) unitAnimator?.SetFacing(AimDirection.x);
 
-            // --- Acciones (cada clase define que hace cada click) ---
-            if ((keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame)
-                && !combat.IsBusy)
+            // --- Acciones (cada clase define que hace cada boton) ---
+            if (GameInput.DashPressed && !combat.IsBusy)
                 motor.TryDash();
 
-            if (mouse.leftButton.wasPressedThisFrame)
+            if (GameInput.PrimaryPressed)
                 combat.OnPrimaryDown(AimDirection);
-            if (mouse.leftButton.wasReleasedThisFrame)
+            if (GameInput.PrimaryReleased)
                 combat.OnPrimaryUp(AimDirection);
 
-            if (mouse.rightButton.wasPressedThisFrame)
+            if (GameInput.SecondaryPressed)
                 combat.OnSecondaryDown(AimDirection);
 
-            if (keyboard.spaceKey.wasPressedThisFrame)
+            if (GameInput.SpecialPressed)
                 combat.OnSpecial(AimDirection); // parry (o curacion, en el monje)
 
-            // --- Ordenes a los aliados: C atacar con todo, V huir ---
-            if (keyboard.cKey.wasPressedThisFrame)
+            // --- Ordenes a los aliados ---
+            if (GameInput.AllyAttackPressed)
                 AllyAI.IssueOrder(AllyAI.Order.Attack);
-            if (keyboard.vKey.wasPressedThisFrame)
+            if (GameInput.AllyFleePressed)
                 AllyAI.IssueOrder(AllyAI.Order.Flee);
 
-            // --- Inventario: teclas 1-4 usan el slot correspondiente ---
+            // --- Inventario: teclas 1-4 o toque sobre el hueco ---
             if (inventory != null)
-            {
-                if (keyboard.digit1Key.wasPressedThisFrame) inventory.UseSlot(0);
-                if (keyboard.digit2Key.wasPressedThisFrame) inventory.UseSlot(1);
-                if (keyboard.digit3Key.wasPressedThisFrame) inventory.UseSlot(2);
-                if (keyboard.digit4Key.wasPressedThisFrame) inventory.UseSlot(3);
-            }
+                for (int i = 0; i < 4; i++)
+                    if (GameInput.ItemPressed(i)) inventory.UseSlot(i);
         }
     }
 }

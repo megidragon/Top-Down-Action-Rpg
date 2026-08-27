@@ -128,9 +128,8 @@ namespace TinyRpg
 
                 if (near)
                 {
-                    var keyboard = Keyboard.current;
-                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame
-                        && InteractGate.TryConsume())
+                    GameInput.Touch?.RequestInteract();
+                    if (GameInput.InteractPressed && InteractGate.TryConsume())
                         TryRecruit(player);
                 }
             }

@@ -110,12 +110,27 @@ namespace TinyRpg
         {
             var keyboard = Keyboard.current;
             if (keyboard != null && keyboard.rKey.wasPressedThisFrame && gameOver)
+                Reload();
+        }
+
+        static void Reload()
+        {
+            Player = null;
+            // Reintentar va directo a elegir clase, sin pasar por el titulo.
+            TitleScreen.SkipTitleOnce = true;
+
+            var active = SceneManager.GetActiveScene();
+            if (active.buildIndex >= 0)
             {
-                Player = null;
-                // Reintentar va directo a elegir clase, sin pasar por el titulo.
-                TitleScreen.SkipTitleOnce = true;
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                SceneManager.LoadScene(active.buildIndex);
+                return;
             }
+#if UNITY_EDITOR
+            // Escena fuera de los ajustes de build (la de pruebas): recargar por
+            // ruta. El lab es solo de editor, asi que no lastra la build.
+            UnityEditor.SceneManagement.EditorSceneManager.LoadSceneInPlayMode(
+                active.path, new LoadSceneParameters(LoadSceneMode.Single));
+#endif
         }
     }
 }

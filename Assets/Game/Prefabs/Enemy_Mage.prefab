@@ -350,6 +350,7 @@ MonoBehaviour:
   maxEnergy: 50
   energyRegenPerSecond: 12.5
   team: 1
+  usesMana: 1
 --- !u!114 &72671828753980226
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -363,10 +364,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 4.6
-  dashSpeed: 15
-  dashDuration: 0.22
-  dashCooldown: 0.35
-  dashEnergyCost: 25
+  dashSpeed: 18
+  dashDuration: 0.17
+  dashCooldown: 0.3
+  dashEnergyCost: 15
   knockbackDecay: 14
 --- !u!114 &7724256540952888753
 MonoBehaviour:
@@ -407,6 +408,10 @@ MonoBehaviour:
   circleDelay: 0.5
   circleKnockback: 7
   circleRecovery: 0.5
+  iceRayRange: 8.5
+  iceManaCost: 40
+  iceRayCastTime: 0.35
+  iceRayRecovery: 0.4
 --- !u!114 &4439275673577369678
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -436,6 +441,7 @@ MonoBehaviour:
   renderers:
   - {fileID: 8468046630865856261}
   isStatic: 0
+  orderOffset: 0
 --- !u!114 &4605621229150190952
 MonoBehaviour:
   m_ObjectHideFlags: 0

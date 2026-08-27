@@ -10,6 +10,10 @@ namespace TinyRpg
     {
         public const int WaterMargin = 12;
 
+        /// Cuanto se hunde en el orden de dibujado la maleza de suelo. Basta
+        /// con superar el rango que cubre el mapa mas alto (Y * 100).
+        const int GroundClutterOffset = 6000;
+
         /// Contenedor del contenido del mapa actual (decoracion, NPCs, salidas...).
         public static Transform CreateContentRoot()
         {
@@ -134,6 +138,15 @@ namespace TinyRpg
             var sorter = root.AddComponent<YSorter>();
             sorter.renderers = new[] { sr };
             sorter.isStatic = true;
+
+            // Maleza de suelo: objetos bajos que el jugador puede pisar. Se
+            // ordenan entre si por Y, pero SIEMPRE por debajo de personajes y
+            // arboles; si no, tapaban medio cuerpo al pisarlos por detras.
+            bool groundClutter = spec.kind == DecorKind.Bush
+                || spec.kind == DecorKind.Rock
+                || spec.kind == DecorKind.Gold
+                || spec.kind == DecorKind.Stump;
+            if (groundClutter) sorter.orderOffset = -GroundClutterOffset;
 
             bool isBuilding = spec.kind == DecorKind.House || spec.kind == DecorKind.House2
                 || spec.kind == DecorKind.Tower;

@@ -25,6 +25,7 @@ namespace TinyRpg.EditorTools
         const string TileSettingsDir = TS + "Terrain/Tileset/Tilemap Settings/";
         const string OutDir = "Assets/Game";
         const string ScenePath = OutDir + "/Scenes/Game.unity";
+        const string LabScenePath = OutDir + "/Scenes/Lab.unity";
 
         static System.Random rng;
         static Sprite coinIconSprite;   // moneda dropeada (Tiny Fantasy)
@@ -34,6 +35,14 @@ namespace TinyRpg.EditorTools
         // de isla antiguo, ya no usado por el juego).
         public static readonly Vector2Int PlayerSpawnHint = new Vector2Int(46, 20);
 
+        /// Prefabs de unidades compartidos por la escena del juego y la del lab.
+        class UnitPrefabs
+        {
+            public GameObject warrior, lancer, archer, monk, mage;
+            public GameObject[] enemies;
+            public GameObject sheep, pawn;
+        }
+
         [MenuItem("TinyRpg/Construir escena del juego")]
         public static void BuildAll()
         {
@@ -42,58 +51,14 @@ namespace TinyRpg.EditorTools
                 rng = new System.Random(20260827);
                 EnsureFolders();
 
-                // ---- Animadores ----
-                var warriorBlue = BuildWarriorController("Blue");
-                var warriorRed = BuildWarriorController("Red");
-                var lancerBlue = BuildLancerController("Blue");
-                var lancerRed = BuildLancerController("Red");
-                var archerBlue = BuildArcherController("Blue");
-                var archerRed = BuildArcherController("Red");
-                var monkBlue = BuildMonkController("Blue");
-                var monkRed = BuildMonkController("Red");
-                var mageBlue = BuildMageController("Blue");
-                var mageRed = BuildMageController("Red");
-                var sheepController = BuildSheepController();
-                var pawnController = BuildPawnNpcController();
-
-                // ---- Iconos ----
-                coinIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Coins/Coins_Medium_Gold.png");
-                potionIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Red.png");
-
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var units = BuildUnitsAndPrefabs();
 
-                // ---- Prefabs ----
-                var playerWarrior = BuildCharacterPrefab("Player_Warrior", warriorBlue, "Blue",
-                    true, WarriorPlayerTuning());
-                var playerLancer = BuildCharacterPrefab("Player_Lancer", lancerBlue, "Blue",
-                    true, LancerPlayerTuning());
-                var playerArcher = BuildCharacterPrefab("Player_Archer", archerBlue, "Blue",
-                    true, ArcherPlayerTuning());
-                var playerMonk = BuildCharacterPrefab("Player_Monk", monkBlue, "Blue",
-                    true, MonkPlayerTuning());
-                var playerMage = BuildCharacterPrefab("Player_Mage", mageBlue, "Blue",
-                    true, MagePlayerTuning());
-
-                var enemyWarrior = BuildCharacterPrefab("Enemy_Warrior", warriorRed, "Red", false);
-                var enemyLancer = BuildCharacterPrefab("Enemy_Lancer", lancerRed, "Red",
-                    false, EnemyLancerTuning());
-                var enemyArcher = BuildCharacterPrefab("Enemy_Archer", archerRed, "Red",
-                    false, EnemyArcherTuning());
-                var enemyMonk = BuildCharacterPrefab("Enemy_Monk", monkRed, "Red",
-                    false, EnemyMonkTuning());
-                var enemyMage = BuildCharacterPrefab("Enemy_Mage", mageRed, "Red",
-                    false, EnemyMageTuning());
-                var sheepPrefab = BuildSheepPrefab(sheepController);
-                var pawnPrefab = BuildPawnNpcPrefab(pawnController);
-
-                // ---- Escena ----
                 var layers = BuildEmptyTilemaps();
                 var cameraFollow = BuildCameraAndLight();
-                BuildMapLibrary(layers,
-                    new[] { enemyWarrior, enemyLancer, enemyArcher, enemyMonk, enemyMage },
-                    sheepPrefab, pawnPrefab);
-                BuildHudAndManagers(playerWarrior, playerLancer, playerArcher, playerMonk,
-                    playerMage, cameraFollow);
+                BuildMapLibrary(layers, units.enemies, units.sheep, units.pawn);
+                BuildHudAndManagers(units.warrior, units.lancer, units.archer, units.monk,
+                    units.mage, cameraFollow, lab: false);
 
                 EditorSceneManager.SaveScene(scene, ScenePath);
                 EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -107,6 +72,85 @@ namespace TinyRpg.EditorTools
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 throw;
             }
+        }
+
+        /// Escena de pruebas independiente: mismos sistemas y prefabs, pero con
+        /// un coliseo cerrado por muros invisibles en vez de la expedicion.
+        /// NO se anade a los ajustes de build (solo se juega desde el editor).
+        [MenuItem("TinyRpg/Construir escena de pruebas (Lab)")]
+        public static void BuildLab()
+        {
+            try
+            {
+                rng = new System.Random(20260828);
+                EnsureFolders();
+
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var units = BuildUnitsAndPrefabs();
+
+                var layers = BuildEmptyTilemaps();
+                var cameraFollow = BuildCameraAndLight();
+                BuildMapLibrary(layers, units.enemies, units.sheep, units.pawn);
+                BuildHudAndManagers(units.warrior, units.lancer, units.archer, units.monk,
+                    units.mage, cameraFollow, lab: true);
+
+                EditorSceneManager.SaveScene(scene, LabScenePath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log("[SceneBuilder] Escena de pruebas construida en " + LabScenePath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[SceneBuilder] FALLO (lab): " + e);
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                throw;
+            }
+        }
+
+        static UnitPrefabs BuildUnitsAndPrefabs()
+        {
+            // ---- Animadores ----
+            var warriorBlue = BuildWarriorController("Blue");
+            var warriorRed = BuildWarriorController("Red");
+            var lancerBlue = BuildLancerController("Blue");
+            var lancerRed = BuildLancerController("Red");
+            var archerBlue = BuildArcherController("Blue");
+            var archerRed = BuildArcherController("Red");
+            var monkBlue = BuildMonkController("Blue");
+            var monkRed = BuildMonkController("Red");
+            var mageBlue = BuildMageController("Blue");
+            var mageRed = BuildMageController("Red");
+            var sheepController = BuildSheepController();
+            var pawnController = BuildPawnNpcController();
+
+            // ---- Iconos ----
+            coinIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Coins/Coins_Medium_Gold.png");
+            potionIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Red.png");
+
+            // ---- Prefabs ----
+            return new UnitPrefabs
+            {
+                warrior = BuildCharacterPrefab("Player_Warrior", warriorBlue, "Blue",
+                    true, WarriorPlayerTuning()),
+                lancer = BuildCharacterPrefab("Player_Lancer", lancerBlue, "Blue",
+                    true, LancerPlayerTuning()),
+                archer = BuildCharacterPrefab("Player_Archer", archerBlue, "Blue",
+                    true, ArcherPlayerTuning()),
+                monk = BuildCharacterPrefab("Player_Monk", monkBlue, "Blue",
+                    true, MonkPlayerTuning()),
+                mage = BuildCharacterPrefab("Player_Mage", mageBlue, "Blue",
+                    true, MagePlayerTuning()),
+                enemies = new[]
+                {
+                    BuildCharacterPrefab("Enemy_Warrior", warriorRed, "Red", false),
+                    BuildCharacterPrefab("Enemy_Lancer", lancerRed, "Red", false, EnemyLancerTuning()),
+                    BuildCharacterPrefab("Enemy_Archer", archerRed, "Red", false, EnemyArcherTuning()),
+                    BuildCharacterPrefab("Enemy_Monk", monkRed, "Red", false, EnemyMonkTuning()),
+                    BuildCharacterPrefab("Enemy_Mage", mageRed, "Red", false, EnemyMageTuning()),
+                },
+                sheep = BuildSheepPrefab(sheepController),
+                pawn = BuildPawnNpcPrefab(pawnController),
+            };
         }
 
         static void EnsureFolders()
@@ -481,6 +525,8 @@ namespace TinyRpg.EditorTools
                 var stats = root.AddComponent<CharacterStats>();
                 stats.team = isPlayer ? 0 : 1;
                 stats.maxHealth = tuning != null ? tuning.maxHealth : (isPlayer ? 150f : 100f);
+                // Solo mago y monje gastan mana en su habilidad de Espacio.
+                stats.usesMana = tuning != null && (tuning.mage || tuning.monk);
 
                 root.AddComponent<CharacterMotor>();
                 CharacterCombat combat = tuning != null && tuning.ranged
@@ -790,6 +836,7 @@ namespace TinyRpg.EditorTools
             lib.elixirStrengthIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Orange.png");
             lib.elixirDefenseIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Blue.png");
             lib.elixirSpeedIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Green.png");
+            lib.elixirEnergyIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Yellow.png");
         }
 
         static SmoothCameraFollow BuildCameraAndLight()
@@ -830,6 +877,7 @@ namespace TinyRpg.EditorTools
             lib.arrowSprite = LoadFirstSprite(TS + "Units/Extra/Arrow/Arrow.png");
             lib.magicBoltSprite = LoadFirstSprite("Assets/Game/Sprites/Mage/MagicBolt.png");
             lib.magicCircleSprite = LoadFirstSprite("Assets/Game/Sprites/Mage/MagicCircle.png");
+            lib.iceSpikeSprite = LoadPixelSprite("Assets/Game/Sprites/Mage/IceSpike.png");
 
             return follow;
         }
@@ -840,7 +888,7 @@ namespace TinyRpg.EditorTools
 
         static void BuildHudAndManagers(GameObject playerWarrior, GameObject playerLancer,
             GameObject playerArcher, GameObject playerMonk, GameObject playerMage,
-            SmoothCameraFollow cameraFollow)
+            SmoothCameraFollow cameraFollow, bool lab)
         {
             var eventSystemGo = new GameObject("EventSystem");
             eventSystemGo.AddComponent<EventSystem>();
@@ -854,6 +902,9 @@ namespace TinyRpg.EditorTools
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 0.5f;
             canvasGo.AddComponent<GraphicRaycaster>();
+            // Controles tactiles: se construyen solos en runtime y solo se
+            // activan en movil (o forzados desde Configuracion).
+            canvasGo.AddComponent<TouchControls>();
 
             var baseSprite = LoadFirstSprite(TS + "UI Elements/Bars/BigBar_Base.png");
             // Vida del jugador en verde claro (a juego con las barras de mundo).
@@ -861,12 +912,19 @@ namespace TinyRpg.EditorTools
                 ?? LoadFirstSprite(TS + "UI Elements/Bars/BigBar_Fill.png");
 
             var hud = canvasGo.AddComponent<PlayerHUD>();
+            // Las tres barras suben para que la de mana quepa entera abajo.
             hud.healthFill = BuildHudBar(canvasGo.transform, "Health", baseSprite, fillSprite,
-                new Vector2(30f, 150f), new Vector2(384f, 128f), Color.white,
+                new Vector2(30f, 196f), new Vector2(384f, 128f), Color.white,
                 new Vector2(0.25f, 0f), new Vector2(0.75f, 1f));
             hud.energyFill = BuildHudBar(canvasGo.transform, "Energy", baseSprite, GetWhiteSprite(),
-                new Vector2(30f, 60f), new Vector2(307f, 102f), new Color(1f, 0.82f, 0.25f, 1f),
+                new Vector2(30f, 106f), new Vector2(307f, 102f), new Color(1f, 0.82f, 0.25f, 1f),
                 new Vector2(0.25f, 0.3125f), new Vector2(0.75f, 0.6875f));
+            // Tercera barra: mana (mago y monje). PlayerHUD la oculta para el
+            // resto de clases.
+            hud.manaFill = BuildHudBar(canvasGo.transform, "Mana", baseSprite, GetWhiteSprite(),
+                new Vector2(30f, 16f), new Vector2(307f, 102f), new Color(0.35f, 0.62f, 1f, 1f),
+                new Vector2(0.25f, 0.3125f), new Vector2(0.75f, 0.6875f));
+            hud.manaBar = hud.manaFill.transform.parent.gameObject;
 
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
@@ -909,13 +967,53 @@ namespace TinyRpg.EditorTools
             var manager = managerGo.AddComponent<GameManager>();
             manager.messageText = message;
 
-            var flowGo = new GameObject("GameFlow");
-            var flow = flowGo.AddComponent<GameFlow>();
-            flow.levelText = levelText;
+            if (lab)
+            {
+                // El lab no tiene expedicion: un coliseo cerrado y teclas de prueba.
+                var arenaGo = new GameObject("LabArena");
+                var arena = arenaGo.AddComponent<LabArena>();
+                arena.titleText = levelText;
+                arena.hintText = BuildLabHints(canvasGo.transform, font);
+            }
+            else
+            {
+                var flowGo = new GameObject("GameFlow");
+                var flow = flowGo.AddComponent<GameFlow>();
+                flow.levelText = levelText;
+
+                // Cartel grande de bienvenida a la zona ("NIVEL 7").
+                var splash = MakeText(canvasGo.transform, "LevelSplash", font, 96, "");
+                var srt = splash.rectTransform;
+                srt.anchorMin = new Vector2(0.5f, 0.5f);
+                srt.anchorMax = new Vector2(0.5f, 0.5f);
+                srt.pivot = new Vector2(0.5f, 0.5f);
+                srt.anchoredPosition = new Vector2(0f, 150f); // sobre el centro
+                srt.sizeDelta = new Vector2(1400f, 200f);
+                splash.alignment = TextAnchor.MiddleCenter;
+                splash.fontStyle = FontStyle.Bold;
+                splash.color = new Color(1f, 0.94f, 0.72f, 0f); // arranca invisible
+                flow.splashText = splash;
+            }
 
             var classSelect = BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer,
                 playerArcher, playerMonk, playerMage, cameraFollow);
             BuildTitleAndSettings(canvasGo.transform, font, classSelect);
+        }
+
+        /// Lista de teclas del lab, abajo a la derecha (fuera del inventario).
+        static Text BuildLabHints(Transform canvas, Font font)
+        {
+            var hints = MakeText(canvas, "LabHints", font, 20, "");
+            hints.gameObject.AddComponent<LocText>().key = "lab.keys";
+            var rt = hints.rectTransform;
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(1f, 0f);
+            rt.anchoredPosition = new Vector2(-24f, 24f);
+            rt.sizeDelta = new Vector2(560f, 120f);
+            hints.alignment = TextAnchor.LowerRight;
+            hints.color = new Color(1f, 1f, 1f, 0.75f);
+            return hints;
         }
 
         static Image BuildHudBar(Transform parent, string name, Sprite baseSprite, Sprite fillSprite,
@@ -1426,6 +1524,9 @@ namespace TinyRpg.EditorTools
             // ---- Pestana General ----
             var generalTab = MakeTabContent(settingsPanel.transform);
             settings.generalTab = generalTab;
+            settings.touchValue = MakeCycleRow(generalTab.transform, font, "settings.touch", 20f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleTouchControls),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleTouchControls));
             settings.languageValue = MakeCycleRow(generalTab.transform, font, "set.language", 120f,
                 b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleLanguage),
                 b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleLanguage));
@@ -1679,6 +1780,9 @@ namespace TinyRpg.EditorTools
             text.font = font;
             text.fontSize = size;
             text.text = content;
+            // Los textos no capturan toques: en movil, cajas grandes como el
+            // mensaje central taparian los botones tactiles de debajo.
+            text.raycastTarget = false;
             var shadow = go.AddComponent<Shadow>();
             shadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
             shadow.effectDistance = new Vector2(2f, -2f);
@@ -1702,5 +1806,6 @@ namespace TinyRpg.EditorTools
     public static class SceneBuilder2
     {
         public const string ScenePathPublic = "Assets/Game/Scenes/Game.unity";
+        public const string LabScenePathPublic = "Assets/Game/Scenes/Lab.unity";
     }
 }

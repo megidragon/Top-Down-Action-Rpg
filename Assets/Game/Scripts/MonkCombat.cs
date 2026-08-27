@@ -19,6 +19,7 @@ namespace TinyRpg
         public float healRadius = 2.5f;
         public float healCooldown = 5f;
         public float healCastTime = 0.8f;
+        public float healManaCost = 40f;
 
         [Header("Embestida (click der.)")]
         public float chargeDistance = 7.6f; // 2x la estocada del lancero (3.8)
@@ -49,6 +50,8 @@ namespace TinyRpg
             // No desperdiciar el rezo: solo si alguien del equipo en el area
             // (el propio monje incluido) tiene vida que recuperar.
             if (!TeamNeedsHealing(1f)) return;
+            // La curacion cuesta mana, que solo se repone en la fogata.
+            if (!stats.TrySpendMana(healManaCost)) return;
 
             healCooldownTimer = healCooldown;
             actionRoutine = StartCoroutine(HealRoutine());

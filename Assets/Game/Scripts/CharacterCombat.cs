@@ -60,6 +60,9 @@ namespace TinyRpg
         public bool IsParryActive { get; private set; }
         public Vector2 ParryDirection { get; private set; }
         public bool IsStaggered => staggerTimer > 0f;
+        /// Ventana de recuperacion tras golpear: no puede atacar todavia. Las
+        /// IAs de duelo la leen para elegir el momento de castigar.
+        public bool IsRecovering => attackRecoveryTimer > 0f;
         public bool IsBusy => IsAttacking || IsParryActive || IsStaggered || stats.IsDead;
 
         /// Se dispara al comenzar un ataque (la IA lo usa para reaccionar con parry).

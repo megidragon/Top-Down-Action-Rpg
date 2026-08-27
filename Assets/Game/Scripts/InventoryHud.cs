@@ -17,6 +17,20 @@ namespace TinyRpg
 
         Inventory inventory;
 
+        void Start()
+        {
+            // En movil los huecos se usan tocandolos (no hay teclas 1-4).
+            var touch = GameInput.Touch;
+            if (touch == null || !touch.Active) return;
+            for (int i = 0; i < slotWidgets.Length && i < Inventory.SlotCount; i++)
+            {
+                var icon = slotWidgets[i].icon;
+                // El fondo del hueco es el padre del icono: es la zona tocable.
+                if (icon != null && icon.transform.parent is RectTransform frame)
+                    touch.AttachItemTap(frame, i);
+            }
+        }
+
         void Update()
         {
             if (inventory == null)

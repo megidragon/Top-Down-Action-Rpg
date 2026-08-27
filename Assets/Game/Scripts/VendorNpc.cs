@@ -47,9 +47,8 @@ namespace TinyRpg
                     if (Mathf.Abs(dx) > 0.05f) spriteRenderer.flipX = dx < 0f;
                 }
 
-                var keyboard = Keyboard.current;
-                if (keyboard != null && keyboard.eKey.wasPressedThisFrame
-                    && InteractGate.TryConsume())
+                GameInput.Touch?.RequestInteract();
+                if (GameInput.InteractPressed && InteractGate.TryConsume())
                     TryBuy(player);
             }
 

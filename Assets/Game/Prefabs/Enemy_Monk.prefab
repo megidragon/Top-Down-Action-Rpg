@@ -486,6 +486,7 @@ MonoBehaviour:
   maxEnergy: 50
   energyRegenPerSecond: 12.5
   team: 1
+  usesMana: 1
 --- !u!114 &8490658742729257676
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -499,10 +500,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 4.6
-  dashSpeed: 15
-  dashDuration: 0.22
-  dashCooldown: 0.35
-  dashEnergyCost: 25
+  dashSpeed: 18
+  dashDuration: 0.17
+  dashCooldown: 0.3
+  dashEnergyCost: 15
   knockbackDecay: 14
 --- !u!114 &3328970388195725292
 MonoBehaviour:
@@ -538,6 +539,7 @@ MonoBehaviour:
   healRadius: 2.5
   healCooldown: 5
   healCastTime: 0.8
+  healManaCost: 40
   chargeDistance: 7.6
   chargeSpeed: 13
   chargeDamage: 15
@@ -573,6 +575,7 @@ MonoBehaviour:
   renderers:
   - {fileID: 2334484559827468952}
   isStatic: 0
+  orderOffset: 0
 --- !u!114 &7327806141181817328
 MonoBehaviour:
   m_ObjectHideFlags: 0

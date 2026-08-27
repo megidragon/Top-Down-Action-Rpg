@@ -13,8 +13,10 @@ namespace TinyRpg
         public enum Offer
         {
             PotionSmall, PotionMedium, PotionLarge,
-            ElixirStrength, ElixirDefense, ElixirSpeed,
+            ElixirStrength, ElixirDefense, ElixirSpeed, ElixirEnergy,
         }
+
+        const int OfferCount = 7;
 
         public float interactRadius = 2.4f;
 
@@ -25,6 +27,7 @@ namespace TinyRpg
         SpriteRenderer offerIcon;
         SpriteRenderer coinIcon;
         TextMesh priceText;
+        TextMesh nameText;
         float feedbackTimer;
 
         public static RestVendor Create(Vector2 pos, Transform parent, bool forceBasicPotion)
@@ -55,7 +58,7 @@ namespace TinyRpg
             var vendor = go.AddComponent<RestVendor>();
             vendor.offer = forceBasicPotion
                 ? Offer.PotionSmall
-                : (Offer)Random.Range(0, 6);
+                : (Offer)Random.Range(0, OfferCount);
             vendor.price = PriceOf(vendor.offer);
             vendor.BuildBubble();
             return vendor;
@@ -74,6 +77,20 @@ namespace TinyRpg
             }
         }
 
+        static string NameKeyOf(Offer o)
+        {
+            switch (o)
+            {
+                case Offer.PotionSmall: return "item.potion_small";
+                case Offer.PotionMedium: return "item.potion_medium";
+                case Offer.PotionLarge: return "item.potion_large";
+                case Offer.ElixirStrength: return "item.elixir_strength";
+                case Offer.ElixirDefense: return "item.elixir_defense";
+                case Offer.ElixirEnergy: return "item.elixir_energy";
+                default: return "item.elixir_speed";
+            }
+        }
+
         Sprite IconOf(Offer o)
         {
             var lib = MapLibrary.Instance;
@@ -84,6 +101,7 @@ namespace TinyRpg
                 case Offer.PotionLarge: return lib.potionLargeIcon;
                 case Offer.ElixirStrength: return lib.elixirStrengthIcon;
                 case Offer.ElixirDefense: return lib.elixirDefenseIcon;
+                case Offer.ElixirEnergy: return lib.elixirEnergyIcon;
                 default: return lib.elixirSpeedIcon;
             }
         }
@@ -134,9 +152,26 @@ namespace TinyRpg
             coinIcon.sprite = lib.coinHudIcon;
             coinIcon.sortingOrder = order + 1;
 
+            // Nombre de lo que vende, bajo el icono: el dibujo del frasco solo
+            // no dice si es fuerza, defensa o velocidad.
+            var nameGo = new GameObject("ItemName");
+            nameGo.transform.SetParent(bubble.transform, false);
+            nameGo.transform.localPosition = new Vector3(0f, -0.42f, 0f);
+            nameText = nameGo.AddComponent<TextMesh>();
+            nameText.text = Loc.T(NameKeyOf(offer));
+            nameText.font = priceText.font;
+            nameText.fontSize = 64;
+            nameText.characterSize = 0.042f;
+            nameText.anchor = TextAnchor.MiddleCenter;
+            nameText.alignment = TextAlignment.Center;
+            nameText.color = new Color(0.9f, 0.97f, 1f, 1f);
+            var nmr = nameGo.GetComponent<MeshRenderer>();
+            nmr.sharedMaterial = nameText.font.material;
+            nmr.sortingOrder = order + 1;
+
             var hintGo = new GameObject("Hint");
             hintGo.transform.SetParent(bubble.transform, false);
-            hintGo.transform.localPosition = new Vector3(0f, -0.55f, 0f);
+            hintGo.transform.localPosition = new Vector3(0f, -0.82f, 0f);
             var hint = hintGo.AddComponent<TextMesh>();
             hint.text = Loc.T("hint.buy");
             hint.font = priceText.font;
@@ -152,6 +187,19 @@ namespace TinyRpg
             bubble.SetActive(false);
         }
 
+#if UNITY_EDITOR
+        /// Fija la oferta desde la verificacion automatica (solo editor).
+        public void DebugSetOffer(Offer forced)
+        {
+            offer = forced;
+            price = PriceOf(forced);
+            sold = false;
+            if (offerIcon != null) offerIcon.sprite = IconOf(forced);
+            if (priceText != null) priceText.text = price.ToString();
+            if (nameText != null) nameText.text = Loc.T(NameKeyOf(forced));
+        }
+#endif
+
         void Update()
         {
             var player = GameManager.Player;
@@ -164,9 +212,8 @@ namespace TinyRpg
 
                 if (near)
                 {
-                    var keyboard = Keyboard.current;
-                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame
-                        && InteractGate.TryConsume())
+                    GameInput.Touch?.RequestInteract();
+                    if (GameInput.InteractPressed && InteractGate.TryConsume())
                         TryBuy(player);
                 }
             }
@@ -184,13 +231,22 @@ namespace TinyRpg
             }
         }
 
+        // Colores a juego con el frasco de cada elixir.
+        static readonly Color StrengthColor = new Color(1f, 0.62f, 0.22f, 1f);   // naranja
+        static readonly Color DefenseColor = new Color(0.45f, 0.72f, 1f, 1f);    // azul
+        static readonly Color SpeedColor = new Color(0.5f, 1f, 0.55f, 1f);       // verde
+        static readonly Color EnergyColor = new Color(1f, 0.9f, 0.3f, 1f);       // amarillo
+
         /// Aplica un elixir al jugador y a todos los aliados vivos (los aliados
-        /// ganan la misma estadistica cuando el jugador consume un elixir).
-        static void BuffParty(PlayerController player, System.Action<CharacterAttributes> buff)
+        /// ganan la misma estadistica cuando el jugador consume un elixir), y
+        /// anuncia la subida con un texto flotante del color del frasco.
+        static void BuffParty(PlayerController player, System.Action<CharacterAttributes> buff,
+            string locKey, int amount, Color color)
         {
             var attrs = player.GetComponent<CharacterAttributes>();
             if (attrs != null) buff(attrs);
             player.GetComponent<CharacterMotor>()?.RefreshAttributesCache();
+            Announce(player.transform, locKey, amount, color);
 
             foreach (var ally in AllyAI.Active)
             {
@@ -199,14 +255,55 @@ namespace TinyRpg
                 if (allyAttrs == null) continue;
                 buff(allyAttrs);
                 ally.GetComponent<CharacterMotor>()?.RefreshAttributesCache();
-                ally.GetComponent<UnitAnimator>()?.FlashHit(new Color(0.6f, 1f, 0.7f, 1f));
+                ally.GetComponent<UnitAnimator>()?.FlashHit(color);
+                Announce(ally.transform, locKey, amount, color);
             }
         }
+
+        static void Announce(Transform who, string locKey, int amount, Color color)
+        {
+            FloatingText.SpawnOver(who, string.Format(Loc.T(locKey), amount), color);
+        }
+
+        /// Elixir de energia: +5 al maximo de la barra (tope 200), para el
+        /// jugador y sus aliados, igual que el resto de elixires.
+        static void BuffPartyEnergy(PlayerController player)
+        {
+            int points = Mathf.RoundToInt(EnergyElixirPoints);
+            var stats = player.GetComponent<CharacterStats>();
+            if (stats != null && stats.AddMaxEnergy(EnergyElixirPoints))
+                Announce(player.transform, "fx.energy", points, EnergyColor);
+
+            foreach (var ally in AllyAI.Active)
+            {
+                if (ally == null || ally.Stats == null || ally.Stats.IsDead) continue;
+                if (!ally.Stats.AddMaxEnergy(EnergyElixirPoints)) continue;
+                ally.GetComponent<UnitAnimator>()?.FlashHit(EnergyColor);
+                Announce(ally.transform, "fx.energy", points, EnergyColor);
+            }
+        }
+
+        const float EnergyElixirPoints = 5f;
 
         void TryBuy(PlayerController player)
         {
             var inventory = player.GetComponent<Inventory>();
             if (inventory == null) return;
+
+            // Con la energia ya al tope el elixir no haria nada: no se vende.
+            if (offer == Offer.ElixirEnergy)
+            {
+                var pStats = player.GetComponent<CharacterStats>();
+                if (pStats != null && pStats.maxEnergy >= CharacterStats.MaxEnergyCap)
+                {
+                    if (offerIcon != null)
+                    {
+                        offerIcon.color = new Color(1f, 0.35f, 0.3f, 1f);
+                        feedbackTimer = 0.35f;
+                    }
+                    return;
+                }
+            }
 
             // Sin hueco libre no hay compra de pociones (y no se cobra nada).
             bool needsSlot = offer == Offer.PotionSmall || offer == Offer.PotionMedium
@@ -237,11 +334,16 @@ namespace TinyRpg
                 case Offer.PotionMedium: inventory.AddItem(ItemType.HealthPotion, 2); break;
                 case Offer.PotionLarge: inventory.AddItem(ItemType.HealthPotion, 3); break;
                 case Offer.ElixirStrength:
-                    BuffParty(player, a => a.AddStrength(1)); break;
+                    BuffParty(player, a => a.AddStrength(1), "fx.strength", 1, StrengthColor);
+                    break;
                 case Offer.ElixirDefense:
-                    BuffParty(player, a => a.AddDefense(1)); break;
+                    BuffParty(player, a => a.AddDefense(1), "fx.defense", 1, DefenseColor);
+                    break;
                 case Offer.ElixirSpeed:
-                    BuffParty(player, a => a.AddSpeed(1)); break;
+                    BuffParty(player, a => a.AddSpeed(1), "fx.speed", 1, SpeedColor);
+                    break;
+                case Offer.ElixirEnergy:
+                    BuffPartyEnergy(player); break;
             }
 
             sold = true;

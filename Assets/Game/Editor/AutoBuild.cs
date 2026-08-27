@@ -18,6 +18,8 @@ namespace TinyRpg.EditorTools
         const string VerifyRequest = "Library/tinyrpg_verify_request.txt";
         const string PlayerRequest = "Library/tinyrpg_player_request.txt";
         const string ReimportRequest = "Library/tinyrpg_reimport_request.txt";
+        const string LabRequest = "Library/tinyrpg_lab_request.txt";
+        const string AndroidRequest = "Library/tinyrpg_android_request.txt";
         const string ResultFile = "Library/tinyrpg_build_result.txt";
 
         static double nextCheck;
@@ -56,6 +58,32 @@ namespace TinyRpg.EditorTools
                 return;
             }
 
+            if (File.Exists(AndroidRequest))
+            {
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                File.Delete(AndroidRequest);
+                AndroidBuilder.BuildAndroid(); // escribe su propio archivo de resultado
+                return;
+            }
+
+            if (File.Exists(LabRequest))
+            {
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                File.Delete(LabRequest);
+                try
+                {
+                    SceneBuilder.BuildLab();
+                    File.WriteAllText(ResultFile, "LAB OK " + DateTime.Now.ToString("HH:mm:ss"));
+                }
+                catch (Exception e)
+                {
+                    File.WriteAllText(ResultFile, "LAB FAIL " + e);
+                }
+                return;
+            }
+
             if (File.Exists(ReimportRequest))
             {
                 File.Delete(ReimportRequest);
@@ -86,7 +114,12 @@ namespace TinyRpg.EditorTools
                 AssetDatabase.Refresh();
                 if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
                 // VerifyCaptureRunner leera y borrara la senal al arrancar el Play.
-                var scenePath = SceneBuilder2.ScenePathPublic;
+                // Si la peticion empieza por "lab:", se verifica la escena de
+                // pruebas en vez de la del juego.
+                string req = File.ReadAllText(VerifyRequest).TrimStart();
+                bool onLab = req.StartsWith("lab:") || req.StartsWith("duels:");
+                var scenePath = onLab
+                    ? SceneBuilder2.LabScenePathPublic : SceneBuilder2.ScenePathPublic;
                 if (!File.Exists(scenePath))
                 {
                     File.Delete(VerifyRequest);

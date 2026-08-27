@@ -13,7 +13,8 @@ namespace TinyRpg
     {
         public static GameFlow Instance { get; private set; }
 
-        public Text levelText; // indicador de nivel en el HUD
+        public Text levelText;   // indicador permanente arriba a la derecha
+        public Text splashText;  // cartel grande al entrar en una zona
 
         public int CurrentLevel { get; private set; } // 0 = ciudad
         public bool InRestStop { get; private set; }
@@ -57,6 +58,7 @@ namespace TinyRpg
             LoadMap(ForestMaps.Town());
             exit?.Activate();
             SetLevelLabel("zone.town");
+            ShowSplash(Loc.T("splash.town"));
         }
 
         void LoadLevel(int level)
@@ -68,6 +70,7 @@ namespace TinyRpg
 
             SpawnEnemies(data, Difficulty.EnemyCountFor(level));
             SetLevelLabel("zone.level", level);
+            ShowSplash(string.Format(Loc.T("splash.level"), level));
 
             if (enemiesAlive <= 0) exit?.Activate(); // por si no hubo sitio
         }
@@ -77,7 +80,8 @@ namespace TinyRpg
             InRestStop = true;
             LoadMap(ForestMaps.RestStop(4000 + CurrentLevel));
             exit?.Activate();
-            SetLevelLabel("zone.camp");
+            SetLevelLabel("zone.camp", CurrentLevel);
+            ShowSplash(Loc.T("splash.camp"));
 
             // Reclutamiento de aliados: un hueco nuevo en los niveles 6/12/18
             // (gratis la primera vez por hueco); los sustitutos de caidos se
@@ -158,6 +162,8 @@ namespace TinyRpg
                 Destroy(stray.gameObject);
             foreach (var stray in FindObjectsByType<MagicCircleBlast>(FindObjectsSortMode.None))
                 Destroy(stray.gameObject);
+            foreach (var stray in FindObjectsByType<IceSpikeField>(FindObjectsSortMode.None))
+                Destroy(stray.gameObject);
 
             content = MapPainter.CreateContentRoot();
             CurrentMap = data;
@@ -177,7 +183,9 @@ namespace TinyRpg
             if (player != null)
             {
                 player.transform.position = data.playerSpawn;
-                cam?.SnapToTarget();
+                // Llegada suave: el corte de posicion es inevitable (el mapa
+                // anterior ya no existe), pero el encuadre se cierra con calma.
+                cam?.ArriveAtTarget();
 
                 // Los aliados viajan contigo: recolocarlos junto al spawn.
                 AllyAI.ResetOrders();
@@ -248,10 +256,15 @@ namespace TinyRpg
                 (spawns[i], spawns[j]) = (spawns[j], spawns[i]);
             }
 
+            // Cupo de cerebros "elite" (Counter/Feinter) para este nivel: un
+            // nivel entero de enemigos que castigan atacar seria injugable.
+            int elitesLeft = Difficulty.MaxElitesFor(CurrentLevel);
+
             int placed = 0;
             for (int i = 0; i < spawns.Count && placed < count; i++)
             {
-                var prefab = lib.enemyPrefabs[Random.Range(0, lib.enemyPrefabs.Length)];
+                int classIndex = Random.Range(0, lib.enemyPrefabs.Length);
+                var prefab = lib.enemyPrefabs[classIndex];
                 if (prefab == null) continue;
                 var enemy = Instantiate(prefab, spawns[i], Quaternion.identity, content);
                 enemiesAlive++;
@@ -268,8 +281,13 @@ namespace TinyRpg
                 attrs.speed = statValue + bonusSpd;
                 enemy.GetComponent<CharacterMotor>()?.RefreshAttributesCache();
 
-                // Nivel de inteligencia de la IA segun la profundidad del bosque.
-                enemy.GetComponent<EnemyAI>()?.ApplyTier(Difficulty.AiTierFor(CurrentLevel));
+                // Reflejos (tier) y tactica (cerebro) segun la profundidad.
+                var ai = enemy.GetComponent<EnemyAI>();
+                if (ai != null)
+                {
+                    ai.ApplyTier(Difficulty.AiTierFor(CurrentLevel));
+                    ai.ApplyBrain(Difficulty.PickBrain(CurrentLevel, ref elitesLeft, classIndex));
+                }
 
                 var enemyStats = enemy.GetComponent<CharacterStats>();
                 var enemyGo = enemy;
@@ -322,6 +340,48 @@ namespace TinyRpg
             string text = Loc.T(labelKey);
             if (text.Contains("{0}")) text = string.Format(text, labelArg);
             levelText.text = text;
+        }
+
+        // ----------------------------------------------------------------
+        //  Cartel de bienvenida a la zona
+        // ----------------------------------------------------------------
+
+        Coroutine splashRoutine;
+
+        void ShowSplash(string text)
+        {
+            if (splashText == null) return;
+            if (splashRoutine != null) StopCoroutine(splashRoutine);
+            splashRoutine = StartCoroutine(SplashRoutine(text));
+        }
+
+        IEnumerator SplashRoutine(string text)
+        {
+            splashText.text = text;
+            Color color = splashText.color;
+
+            // Tiempo sin escalar: el cartel se ve aunque el juego este pausado
+            // (al empezar la partida, la seleccion de clase deja timeScale a 0).
+            yield return Fade(color, 0f, 1f, 0.35f);
+            float hold = 0f;
+            while (hold < 1.1f) { hold += Time.unscaledDeltaTime; yield return null; }
+            yield return Fade(color, 1f, 0f, 0.55f);
+
+            splashText.text = "";
+            splashRoutine = null;
+        }
+
+        IEnumerator Fade(Color color, float from, float to, float duration)
+        {
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                float a = Mathf.Lerp(from, to, Mathf.Clamp01(t / duration));
+                splashText.color = new Color(color.r, color.g, color.b, a);
+                yield return null;
+            }
+            splashText.color = new Color(color.r, color.g, color.b, to);
         }
     }
 }

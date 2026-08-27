@@ -11,6 +11,11 @@ namespace TinyRpg
         public SpriteRenderer[] renderers;
         public bool isStatic;
 
+        /// Desplazamiento fijo del orden. Se usa para la maleza de suelo
+        /// (arbustos, piedras, oro): son adornos bajos que nunca deben tapar a
+        /// un personaje, aunque este los pise por detras.
+        public int orderOffset;
+
         void Start()
         {
             if (renderers == null || renderers.Length == 0)
@@ -26,7 +31,7 @@ namespace TinyRpg
 
         public void Apply()
         {
-            int order = OrderForY(transform.position.y);
+            int order = OrderForY(transform.position.y) + orderOffset;
             if (renderers == null) return;
             for (int i = 0; i < renderers.Length; i++)
                 if (renderers[i] != null) renderers[i].sortingOrder = order + i;

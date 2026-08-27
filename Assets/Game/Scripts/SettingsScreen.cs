@@ -18,6 +18,7 @@ namespace TinyRpg
         public Text resolutionValue;
         public Text windowModeValue;
         public Text shakeValue;
+        public Text touchValue;
         public Text languageValue;
         public Slider generalSlider;
         public Slider effectsSlider;
@@ -110,6 +111,14 @@ namespace TinyRpg
 
         // ------------------- General -------------------
 
+        /// En movil los controles tactiles salen solos; esto los fuerza en
+        /// escritorio (para probarlos). Requiere reiniciar la escena.
+        public void ToggleTouchControls()
+        {
+            GameSettings.ForceTouchControls = !GameSettings.ForceTouchControls;
+            RefreshValues();
+        }
+
         public void ToggleLanguage()
         {
             GameSettings.Language = GameSettings.Language == GameLanguage.Spanish
@@ -129,6 +138,10 @@ namespace TinyRpg
                 windowModeValue.text = Loc.T(GameSettings.Fullscreen ? "set.fullscreen" : "set.windowed");
             if (shakeValue != null)
                 shakeValue.text = Loc.T(GameSettings.ScreenShake ? "set.on" : "set.off");
+            if (touchValue != null)
+                touchValue.text = Loc.T(
+                    Application.isMobilePlatform || GameSettings.ForceTouchControls
+                        ? "set.on" : "set.off");
             if (languageValue != null)
                 languageValue.text = GameSettings.Language == GameLanguage.Spanish ? "Español" : "English";
         }

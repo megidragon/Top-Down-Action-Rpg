@@ -93,6 +93,43 @@ namespace TinyRpg
             SnapTo(anchor);
         }
 
+        /// Llegada a un mapa nuevo. La posicion SI salta (el mapa anterior ya no
+        /// existe, un barrido no tendria sentido), pero el encuadre se abre y se
+        /// cierra suavemente para que no sea un corte seco.
+        public void ArriveAtTarget(float zoomOut = 1.22f, float duration = 0.55f)
+        {
+            SnapToTarget();
+            if (cam == null || !cam.orthographic) return;
+            if (arrival != null) StopCoroutine(arrival);
+            arrival = StartCoroutine(ArrivalZoom(zoomOut, duration));
+        }
+
+        Coroutine arrival;
+        float baseSize = -1f;
+
+        System.Collections.IEnumerator ArrivalZoom(float zoomOut, float duration)
+        {
+            // El tamano base se guarda una sola vez: si se encadenan llegadas,
+            // no se acumula el zoom.
+            if (baseSize <= 0f) baseSize = cam.orthographicSize;
+            float from = baseSize * zoomOut;
+            float t = 0f;
+
+            cam.orthographicSize = from;
+            while (t < duration)
+            {
+                // Tiempo sin escalar: la llegada tambien se ve con el juego
+                // pausado en la seleccion de clase.
+                t += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / duration);
+                k = 1f - (1f - k) * (1f - k); // ease-out
+                cam.orthographicSize = Mathf.Lerp(from, baseSize, k);
+                yield return null;
+            }
+            cam.orthographicSize = baseSize;
+            arrival = null;
+        }
+
         Vector2 ClampToBounds(Vector2 pos)
         {
             if (cam == null || !cam.orthographic) return pos;

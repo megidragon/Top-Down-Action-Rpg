@@ -13,6 +13,7 @@ namespace TinyRpg
         const string KeyResH = "tinyrpg.res.h";
         const string KeyFullscreen = "tinyrpg.fullscreen";
         const string KeyShake = "tinyrpg.shake";
+        const string KeyTouch = "tinyrpg.touch";
         const string KeyVolGeneral = "tinyrpg.vol.general";
         const string KeyVolEffects = "tinyrpg.vol.effects";
         const string KeyVolMusic = "tinyrpg.vol.music";
@@ -23,6 +24,7 @@ namespace TinyRpg
         static int resHeight;
         static bool fullscreen;
         static bool screenShake;
+        static bool forceTouch;
         static float volGeneral, volEffects, volMusic;
 
         public static GameLanguage Language
@@ -43,6 +45,14 @@ namespace TinyRpg
         {
             get { EnsureLoaded(); return screenShake; }
             set { EnsureLoaded(); screenShake = value; PlayerPrefs.SetInt(KeyShake, value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        /// Fuerza los controles tactiles en escritorio (para probarlos en el
+        /// editor). En movil se activan solos, sin depender de este ajuste.
+        public static bool ForceTouchControls
+        {
+            get { EnsureLoaded(); return forceTouch; }
+            set { EnsureLoaded(); forceTouch = value; PlayerPrefs.SetInt(KeyTouch, value ? 1 : 0); PlayerPrefs.Save(); }
         }
 
         public static bool Fullscreen
@@ -110,6 +120,7 @@ namespace TinyRpg
             resHeight = PlayerPrefs.GetInt(KeyResH, 0);
             fullscreen = PlayerPrefs.GetInt(KeyFullscreen, 1) == 1;
             screenShake = PlayerPrefs.GetInt(KeyShake, 1) == 1;
+            forceTouch = PlayerPrefs.GetInt(KeyTouch, 0) == 1;
             volGeneral = PlayerPrefs.GetFloat(KeyVolGeneral, 1f);
             volEffects = PlayerPrefs.GetFloat(KeyVolEffects, 1f);
             volMusic = PlayerPrefs.GetFloat(KeyVolMusic, 1f);

@@ -54,6 +54,111 @@ namespace TinyRpg
             return 2 + (level - 3) / 3; // 3 en el 6-8, 4 en el 9-11...
         }
 
+        // ----------------------------------------------------------------
+        //  Cerebros de combate por nivel
+        // ----------------------------------------------------------------
+        //
+        // El reparto sale de la liga del coliseo (435 duelos). La dificultad
+        // REAL para un jugador no es cuanto gana una IA, sino lo que le cuesta
+        // al rival matarla: derrotas Counter 17 < Feinter 42 < Flanker 46 <
+        // Spacer 48 < Ambusher 56 < Rusher 75. Y cada una castiga un error
+        // distinto: el Counter castiga atacar, el Spacer fallar, el Feinter el
+        // parry en falso, el Flanker quedarse quieto.
+
+        /// Cerebros "elite": los que castigan al jugador por su accion basica.
+        /// Se limita cuantos pueden salir a la vez en un mismo nivel.
+        public static bool IsElite(CombatBrain brain) =>
+            brain == CombatBrain.Counter || brain == CombatBrain.Feinter;
+
+        public static int MaxElitesFor(int level) => level >= 20 ? 2 : (level >= 13 ? 1 : 0);
+
+        /// Pesos por tramo. Devuelve pares (cerebro, peso).
+        static (CombatBrain brain, int weight)[] BrainBag(int level)
+        {
+            if (level <= 3)
+                return new[] { (CombatBrain.Rusher, 100) };
+
+            if (level <= 6)
+                return new[] { (CombatBrain.Rusher, 70), (CombatBrain.Ambusher, 30) };
+
+            if (level <= 9)
+                return new[]
+                {
+                    (CombatBrain.Rusher, 40), (CombatBrain.Ambusher, 25),
+                    (CombatBrain.Flanker, 20), (CombatBrain.Spacer, 15),
+                };
+
+            if (level <= 12)
+                return new[]
+                {
+                    (CombatBrain.Rusher, 25), (CombatBrain.Ambusher, 20),
+                    (CombatBrain.Flanker, 20), (CombatBrain.Spacer, 20),
+                    (CombatBrain.Feinter, 15),
+                };
+
+            if (level <= 15)
+                return new[]
+                {
+                    (CombatBrain.Rusher, 18), (CombatBrain.Ambusher, 17),
+                    (CombatBrain.Flanker, 20), (CombatBrain.Spacer, 20),
+                    (CombatBrain.Feinter, 10), (CombatBrain.Counter, 15),
+                };
+
+            // 16+: mandan los que castigan, pero los seis siguen apareciendo.
+            return new[]
+            {
+                (CombatBrain.Counter, 25), (CombatBrain.Feinter, 20),
+                (CombatBrain.Spacer, 20), (CombatBrain.Flanker, 15),
+                (CombatBrain.Ambusher, 12), (CombatBrain.Rusher, 8),
+            };
+        }
+
+        /// Elige un cerebro para un enemigo del nivel dado. 'elitesLeft' es el
+        /// cupo de elites que queda en este nivel; si se agota, se reintenta
+        /// con la parte no-elite de la bolsa.
+        public static CombatBrain PickBrain(int level, ref int elitesLeft, int classIndex)
+        {
+            var bag = BrainBag(level);
+            bool allowElite = elitesLeft > 0;
+
+            int total = 0;
+            foreach (var (brain, weight) in bag)
+                if (Allowed(brain, classIndex, level, allowElite)) total += weight;
+
+            if (total <= 0) return CombatBrain.Rusher;
+
+            int roll = Random.Range(0, total);
+            foreach (var (brain, weight) in bag)
+            {
+                if (!Allowed(brain, classIndex, level, allowElite)) continue;
+                roll -= weight;
+                if (roll < 0)
+                {
+                    if (IsElite(brain)) elitesLeft--;
+                    return brain;
+                }
+            }
+            return CombatBrain.Rusher;
+        }
+
+        /// Restricciones que salieron de la liga:
+        ///  - El monje con cerebros defensivos no mata a nadie (Counter 1V de
+        ///    29, Flanker 0V): su empuje lo desengancha de su propio alcance.
+        ///    Hasta arreglar eso, solo cerebros agresivos.
+        ///  - Mago Counter fue la mejor combinacion del torneo (19V, 3D): se
+        ///    reserva para lo hondo del bosque.
+        static bool Allowed(CombatBrain brain, int classIndex, int level, bool allowElite)
+        {
+            if (IsElite(brain) && !allowElite) return false;
+
+            const int Monk = 3, Mage = 4;
+            if (classIndex == Monk)
+                return brain == CombatBrain.Rusher || brain == CombatBrain.Ambusher;
+            if (classIndex == Mage && brain == CombatBrain.Counter && level < 18)
+                return false;
+            return true;
+        }
+
         /// Huecos de aliado desbloqueados segun el nivel alcanzado (6/12/18).
         public static int AllySlotsFor(int level)
         {

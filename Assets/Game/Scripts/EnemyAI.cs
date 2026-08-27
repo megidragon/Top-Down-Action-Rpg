@@ -33,6 +33,11 @@ namespace TinyRpg
         [Range(0f, 1f)] public float dashChance = 0.3f;
 
         public int tier = 2;              // 0 tonta, 1 media, 2 inteligente
+
+        /// Cerebro tactico (los seis del coliseo). El TIER son los reflejos
+        /// —cada cuanto decide— y el CEREBRO es la tactica. GameFlow los
+        /// asigna por nivel.
+        DuelistAI duelist;
         float thinkInterval = 0.15f;      // reflejos: cada cuanto decide
         float pauseScale = 1f;            // multiplicador de pausas entre ataques
 
@@ -78,6 +83,18 @@ namespace TinyRpg
 
         /// Configura los parametros del nivel de inteligencia. Llamar justo
         /// despues de instanciar (antes del primer Update).
+        /// Instala uno de los seis cerebros de combate. Sin cerebro, el enemigo
+        /// usa la logica por clase de siempre.
+        public void ApplyBrain(CombatBrain brain)
+        {
+            if (duelist == null)
+            {
+                duelist = gameObject.AddComponent<DuelistAI>();
+                duelist.autoDrive = false; // conduce EnemyAI: patrulla y aggro
+            }
+            duelist.brain = brain;
+        }
+
         public void ApplyTier(int newTier)
         {
             tier = newTier;
@@ -107,6 +124,7 @@ namespace TinyRpg
 
         void RefreshClassTuning()
         {
+            if (duelist != null) return; // la distancia la marca el cerebro
             // Las clases de rango listas mantienen la distancia; las tontas
             // caminan hacia ti.
             if (combat is ArcherCombat || combat is MageCombat)
@@ -222,8 +240,19 @@ namespace TinyRpg
 
         void TryCombatActions(float dist)
         {
-            if (combat.IsBusy || motor.IsDashing || attackPauseTimer > 0f) return;
             if (foe == null) return;
+
+            // Con cerebro instalado, la tactica la decide el: EnemyAI solo
+            // marca el ritmo (el tier) y ejecuta el movimiento.
+            if (duelist != null)
+            {
+                duelist.SetFoe(foe);
+                duelist.ThinkOnce();
+                preferredDistance = duelist.DesiredDistance;
+                return;
+            }
+
+            if (combat.IsBusy || motor.IsDashing || attackPauseTimer > 0f) return;
 
             Vector2 foePos = foe.position;
             Vector2 aim = (foePos - (Vector2)transform.position).normalized;
@@ -374,6 +403,9 @@ namespace TinyRpg
 
         void OnPlayerAttackStarted(CharacterCombat playerCombat, CharacterCombat.AttackKind kind)
         {
+            // Con cerebro, el parry reactivo lo lleva el (sabe si su clase lo
+            // tiene y con que probabilidad segun su tactica).
+            if (duelist != null) return;
             if (stats.IsDead || combat.IsBusy || motor.IsDashing) return;
             if (state != State.Chase || parryReactionCooldown > 0f) return;
 
@@ -427,6 +459,13 @@ namespace TinyRpg
 
                         if (dist > preferredDistance) desired = dir;
                         else if (dist < preferredDistance * 0.55f) desired = -dir * 0.6f;
+
+                        // El Flanker rodea para pegar fuera del cono de parry.
+                        if (duelist != null && duelist.WantsOrbit)
+                        {
+                            Vector2 tangent = new Vector2(-dir.y, dir.x) * duelist.OrbitSign;
+                            desired = (desired + tangent * 1.3f).normalized;
+                        }
 
                         desired += Separation(pos) * 0.6f;
                         if (desired.sqrMagnitude > 1f) desired.Normalize();

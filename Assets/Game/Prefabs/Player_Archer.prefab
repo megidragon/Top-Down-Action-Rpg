@@ -122,6 +122,7 @@ MonoBehaviour:
   maxEnergy: 50
   energyRegenPerSecond: 12.5
   team: 0
+  usesMana: 0
 --- !u!114 &6100374214957129523
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -135,10 +136,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 4.6
-  dashSpeed: 15
-  dashDuration: 0.22
-  dashCooldown: 0.35
-  dashEnergyCost: 25
+  dashSpeed: 18
+  dashDuration: 0.17
+  dashCooldown: 0.3
+  dashEnergyCost: 15
   knockbackDecay: 14
 --- !u!114 &1862604017205040826
 MonoBehaviour:
@@ -209,6 +210,7 @@ MonoBehaviour:
   renderers:
   - {fileID: 7964045406006660278}
   isStatic: 0
+  orderOffset: 0
 --- !u!114 &18852072098598388
 MonoBehaviour:
   m_ObjectHideFlags: 0
