@@ -93,10 +93,24 @@ namespace TinyRpg
                 if (follow != null) follow.enabled = true;
             }
 
-            yield return new WaitForSecondsRealtime(2.5f);
+            // Entrar al nivel 1 del bosque para capturar combate real: colocar
+            // al jugador junto al enemigo para que haga aggro y ataque.
+            GameFlow.Instance?.Advance();
+            yield return new WaitForSecondsRealtime(0.8f);
+            var enemy = FindFirstObjectByType<EnemyAI>();
+            var playerNow = GameManager.Player;
+            if (enemy != null && playerNow != null)
+            {
+                playerNow.transform.position =
+                    (Vector2)enemy.transform.position + new Vector2(3.2f, 0.5f);
+                Camera.main?.GetComponent<SmoothCameraFollow>()?.SnapToTarget();
+            }
+            yield return new WaitForSecondsRealtime(2.7f);
             Capture("03_gameplay_a");
-            yield return new WaitForSecondsRealtime(3f);
+            yield return new WaitForSecondsRealtime(2.5f);
             Capture("04_gameplay_b");
+            yield return new WaitForSecondsRealtime(2f);
+            Capture("05_gameplay_c");
             yield return new WaitForSecondsRealtime(0.8f);
 
             File.WriteAllText("Library/tinyrpg_verify_done.txt", "OK " + DateTime.Now.ToString("HH:mm:ss"));
