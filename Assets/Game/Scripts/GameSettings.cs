@@ -1,0 +1,118 @@
+using UnityEngine;
+
+namespace TinyRpg
+{
+    public enum GameLanguage { Spanish = 0, English = 1 }
+
+    /// Ajustes del juego persistidos en PlayerPrefs: idioma, resolucion,
+    /// modo de pantalla, temblor de camara y volumenes.
+    public static class GameSettings
+    {
+        const string KeyLanguage = "tinyrpg.language";
+        const string KeyResolution = "tinyrpg.resolution";
+        const string KeyFullscreen = "tinyrpg.fullscreen";
+        const string KeyShake = "tinyrpg.shake";
+        const string KeyVolGeneral = "tinyrpg.vol.general";
+        const string KeyVolEffects = "tinyrpg.vol.effects";
+        const string KeyVolMusic = "tinyrpg.vol.music";
+
+        static bool loaded;
+        static GameLanguage language;
+        static int resolutionIndex = -1; // -1 = recomendada (nativa)
+        static bool fullscreen;
+        static bool screenShake;
+        static float volGeneral, volEffects, volMusic;
+
+        public static GameLanguage Language
+        {
+            get { EnsureLoaded(); return language; }
+            set
+            {
+                EnsureLoaded();
+                if (language == value) return;
+                language = value;
+                PlayerPrefs.SetInt(KeyLanguage, (int)value);
+                PlayerPrefs.Save();
+                Loc.NotifyLanguageChanged();
+            }
+        }
+
+        public static bool ScreenShake
+        {
+            get { EnsureLoaded(); return screenShake; }
+            set { EnsureLoaded(); screenShake = value; PlayerPrefs.SetInt(KeyShake, value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        public static bool Fullscreen
+        {
+            get { EnsureLoaded(); return fullscreen; }
+            set { EnsureLoaded(); fullscreen = value; PlayerPrefs.SetInt(KeyFullscreen, value ? 1 : 0); PlayerPrefs.Save(); ApplyResolution(); }
+        }
+
+        public static float VolumeGeneral
+        {
+            get { EnsureLoaded(); return volGeneral; }
+            set { EnsureLoaded(); volGeneral = Mathf.Clamp01(value); AudioListener.volume = volGeneral; PlayerPrefs.SetFloat(KeyVolGeneral, volGeneral); PlayerPrefs.Save(); }
+        }
+
+        public static float VolumeEffects
+        {
+            get { EnsureLoaded(); return volEffects; }
+            set { EnsureLoaded(); volEffects = Mathf.Clamp01(value); PlayerPrefs.SetFloat(KeyVolEffects, volEffects); PlayerPrefs.Save(); }
+        }
+
+        public static float VolumeMusic
+        {
+            get { EnsureLoaded(); return volMusic; }
+            set { EnsureLoaded(); volMusic = Mathf.Clamp01(value); PlayerPrefs.SetFloat(KeyVolMusic, volMusic); PlayerPrefs.Save(); }
+        }
+
+        /// Indice dentro de Screen.resolutions; -1 = resolucion nativa recomendada.
+        public static int ResolutionIndex
+        {
+            get { EnsureLoaded(); return resolutionIndex; }
+            set { EnsureLoaded(); resolutionIndex = value; PlayerPrefs.SetInt(KeyResolution, value); PlayerPrefs.Save(); ApplyResolution(); }
+        }
+
+        public static Resolution CurrentResolution
+        {
+            get
+            {
+                EnsureLoaded();
+                var all = Screen.resolutions;
+                if (resolutionIndex >= 0 && resolutionIndex < all.Length) return all[resolutionIndex];
+                return Screen.currentResolution; // recomendada
+            }
+        }
+
+        static void EnsureLoaded()
+        {
+            if (loaded) return;
+            loaded = true;
+            language = (GameLanguage)PlayerPrefs.GetInt(KeyLanguage, 0);
+            resolutionIndex = PlayerPrefs.GetInt(KeyResolution, -1);
+            fullscreen = PlayerPrefs.GetInt(KeyFullscreen, 1) == 1;
+            screenShake = PlayerPrefs.GetInt(KeyShake, 1) == 1;
+            volGeneral = PlayerPrefs.GetFloat(KeyVolGeneral, 1f);
+            volEffects = PlayerPrefs.GetFloat(KeyVolEffects, 1f);
+            volMusic = PlayerPrefs.GetFloat(KeyVolMusic, 1f);
+        }
+
+        /// Aplica volumen y resolucion guardados (al arrancar la escena).
+        public static void ApplyAll()
+        {
+            EnsureLoaded();
+            AudioListener.volume = volGeneral;
+            ApplyResolution();
+        }
+
+        static void ApplyResolution()
+        {
+#if !UNITY_EDITOR
+            var res = CurrentResolution;
+            Screen.SetResolution(res.width, res.height,
+                fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed);
+#endif
+        }
+    }
+}

@@ -40,7 +40,7 @@ namespace TinyRpg
             InRestStop = false;
             LoadMap(ForestMaps.Town());
             exit?.Activate();
-            SetLevelLabel("Ciudad");
+            SetLevelLabel(Loc.T("zone.town"));
         }
 
         void LoadLevel(int level)
@@ -53,7 +53,7 @@ namespace TinyRpg
             // Dificultad: 1 enemigo, +1 cada 3 niveles.
             int enemyCount = 1 + (level - 1) / 3;
             SpawnEnemies(data, enemyCount);
-            SetLevelLabel($"Bosque - Nivel {level}");
+            SetLevelLabel(string.Format(Loc.T("zone.level"), level));
 
             if (enemiesAlive <= 0) exit?.Activate(); // por si no hubo sitio
         }
@@ -63,7 +63,7 @@ namespace TinyRpg
             InRestStop = true;
             LoadMap(ForestMaps.RestStop(4000 + CurrentLevel));
             exit?.Activate();
-            SetLevelLabel("Campamento");
+            SetLevelLabel(Loc.T("zone.camp"));
         }
 
         /// El jugador cruza la salida del mapa actual.
@@ -78,8 +78,7 @@ namespace TinyRpg
 
         public void Victory()
         {
-            GameManager.TriggerEnd("¡HAS ENCONTRADO EL TESORO DEL BOSQUE!\n\n" +
-                "La leyenda era cierta.\nPulsa R para una nueva expedicion");
+            GameManager.TriggerEnd(Loc.T("msg.victory"));
         }
 
         // ----------------------------------------------------------------
@@ -209,7 +208,7 @@ namespace TinyRpg
                 exit?.Activate();
                 // No pisar el mensaje de muerte/victoria con el aviso de nivel.
                 if (!GameManager.IsGameOver)
-                    StartCoroutine(FlashMessage("¡NIVEL LIMPIO!"));
+                    StartCoroutine(FlashMessage(Loc.T("msg.clean")));
             }
         }
 

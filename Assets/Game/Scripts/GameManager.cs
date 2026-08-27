@@ -64,7 +64,7 @@ namespace TinyRpg
             gameOver = true;
             player.GetComponent<UnitAnimator>()?.SetDeadVisual();
             if (messageText != null)
-                messageText.text = "HAS MUERTO EN EL BOSQUE\nLa run termina aqui.\nPulsa R para reintentar";
+                messageText.text = Loc.T("msg.death");
         }
 
         /// Desvanece el cadaver de un enemigo y suelta su moneda.

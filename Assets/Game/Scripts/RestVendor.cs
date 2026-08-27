@@ -134,7 +134,7 @@ namespace TinyRpg
             hintGo.transform.SetParent(bubble.transform, false);
             hintGo.transform.localPosition = new Vector3(0f, -0.55f, 0f);
             var hint = hintGo.AddComponent<TextMesh>();
-            hint.text = "[E] comprar";
+            hint.text = Loc.T("hint.buy");
             hint.font = priceText.font;
             hint.fontSize = 64;
             hint.characterSize = 0.038f;

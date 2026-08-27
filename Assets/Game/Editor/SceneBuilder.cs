@@ -822,8 +822,9 @@ namespace TinyRpg.EditorTools
             var flow = flowGo.AddComponent<GameFlow>();
             flow.levelText = levelText;
 
-            BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer, playerArcher,
-                playerMonk, cameraFollow);
+            var classSelect = BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer,
+                playerArcher, playerMonk, cameraFollow);
+            BuildTitleAndSettings(canvasGo.transform, font, classSelect);
         }
 
         static Image BuildHudBar(Transform parent, string name, Sprite baseSprite, Sprite fillSprite,
@@ -1009,7 +1010,7 @@ namespace TinyRpg.EditorTools
             statsPanel.statsText = statsText;
         }
 
-        static void BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
+        static ClassSelectScreen BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
             GameObject playerLancer, GameObject playerArcher, GameObject playerMonk,
             SmoothCameraFollow cameraFollow)
         {
@@ -1017,12 +1018,57 @@ namespace TinyRpg.EditorTools
             panelGo.transform.SetParent(canvas, false);
             var panelImg = panelGo.AddComponent<Image>();
             panelImg.sprite = GetWhiteSprite();
-            panelImg.color = new Color(0.05f, 0.05f, 0.07f, 0.86f);
+            panelImg.color = new Color(0.05f, 0.05f, 0.07f, 1f);
             var prt = panelImg.rectTransform;
             prt.anchorMin = Vector2.zero;
             prt.anchorMax = Vector2.one;
             prt.offsetMin = Vector2.zero;
             prt.offsetMax = Vector2.zero;
+
+            // ---- Fondo: suelo de hierba tileado con arboles en los laterales ----
+            var grassGo = new GameObject("GrassBackdrop");
+            grassGo.transform.SetParent(panelGo.transform, false);
+            var grass = grassGo.AddComponent<RawImage>();
+            grass.texture = LoadUiTexture(OutDir + "/UI/GrassTile.png", repeat: true);
+            grass.uvRect = new Rect(0f, 0f, 30f, 17f); // tile de 64px repetido
+            var grt = grass.rectTransform;
+            grt.anchorMin = Vector2.zero;
+            grt.anchorMax = Vector2.one;
+            grt.offsetMin = Vector2.zero;
+            grt.offsetMax = Vector2.zero;
+
+            var shade = new GameObject("Shade");
+            shade.transform.SetParent(panelGo.transform, false);
+            var shadeImg = shade.AddComponent<Image>();
+            shadeImg.sprite = GetWhiteSprite();
+            shadeImg.color = new Color(0f, 0f, 0.02f, 0.35f);
+            var srt0 = shadeImg.rectTransform;
+            srt0.anchorMin = Vector2.zero;
+            srt0.anchorMax = Vector2.one;
+            srt0.offsetMin = Vector2.zero;
+            srt0.offsetMax = Vector2.zero;
+
+            var treeSprite1 = LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Tree1.png");
+            var treeSprite2 = LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Tree2.png");
+            var borderTrees = new (float x, float y, float size, bool alt)[]
+            {
+                (-880f, 260f, 300f, false), (-905f, -40f, 340f, true), (-870f, -340f, 310f, false),
+                (880f, 260f, 310f, true), (905f, -40f, 330f, false), (872f, -340f, 300f, true),
+            };
+            foreach (var t in borderTrees)
+            {
+                var treeGo = new GameObject("BorderTree");
+                treeGo.transform.SetParent(panelGo.transform, false);
+                var treeImg = treeGo.AddComponent<Image>();
+                treeImg.sprite = t.alt ? treeSprite2 : treeSprite1;
+                treeImg.preserveAspect = true;
+                treeImg.raycastTarget = false;
+                var trt0 = treeImg.rectTransform;
+                trt0.anchorMin = new Vector2(0.5f, 0.5f);
+                trt0.anchorMax = new Vector2(0.5f, 0.5f);
+                trt0.anchoredPosition = new Vector2(t.x, t.y);
+                trt0.sizeDelta = new Vector2(t.size, t.size * 1.33f);
+            }
 
             var title = MakeText(panelGo.transform, "Title", font, 54, "ELIGE TU CLASE");
             var trt = title.rectTransform;
@@ -1033,6 +1079,7 @@ namespace TinyRpg.EditorTools
             trt.sizeDelta = new Vector2(900f, 80f);
             title.alignment = TextAnchor.MiddleCenter;
             title.color = new Color(1f, 0.93f, 0.75f, 1f);
+            title.gameObject.AddComponent<LocText>().key = "class.title";
 
             var bootstrapGo = new GameObject("GameBootstrap");
             var screen = bootstrapGo.AddComponent<ClassSelectScreen>();
@@ -1044,14 +1091,15 @@ namespace TinyRpg.EditorTools
             screen.spawnPosition = new Vector2(18f, 7f); // GameFlow lo actualiza al pintar la ciudad
             screen.cameraFollow = cameraFollow;
 
-            MakeClassCard(panelGo.transform, font, -450f, "Guerrero", "Tecla 1",
+            MakeClassCard(panelGo.transform, font, -450f, "class.warrior", "class.key1",
                 TS + "Units/Blue Units/Warrior/Warrior_Idle.png", screen, 0);
-            MakeClassCard(panelGo.transform, font, -150f, "Lancero", "Tecla 2",
+            MakeClassCard(panelGo.transform, font, -150f, "class.lancer", "class.key2",
                 TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
-            MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Tecla 3",
+            MakeClassCard(panelGo.transform, font, 150f, "class.archer", "class.key3",
                 TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, 2);
-            MakeClassCard(panelGo.transform, font, 450f, "Monje", "Tecla 4",
+            MakeClassCard(panelGo.transform, font, 450f, "class.monk", "class.key4",
                 TS + "Units/Blue Units/Monk/Idle.png", screen, 3);
+            return screen;
         }
 
         static void MakeClassCard(Transform parent, Font font, float x, string title,
@@ -1096,6 +1144,7 @@ namespace TinyRpg.EditorTools
             }
 
             var nameText = MakeText(cardGo.transform, "Name", font, 32, title);
+            nameText.gameObject.AddComponent<LocText>().key = title;
             var nrt = nameText.rectTransform;
             nrt.anchorMin = new Vector2(0.5f, 0f);
             nrt.anchorMax = new Vector2(0.5f, 0f);
@@ -1106,6 +1155,7 @@ namespace TinyRpg.EditorTools
             nameText.color = locked ? new Color(0.5f, 0.47f, 0.42f, 1f) : Color.white;
 
             var subText = MakeText(cardGo.transform, "Subtitle", font, 22, subtitle);
+            if (!locked) subText.gameObject.AddComponent<LocText>().key = subtitle;
             var srt = subText.rectTransform;
             srt.anchorMin = new Vector2(0.5f, 0f);
             srt.anchorMax = new Vector2(0.5f, 0f);
@@ -1126,6 +1176,350 @@ namespace TinyRpg.EditorTools
                 button.colors = colors;
                 UnityEventTools.AddIntPersistentListener(button.onClick, screen.Choose, classIndex);
             }
+        }
+
+        // =================================================================
+        //  PANTALLA DE TITULO Y CONFIGURACION
+        // =================================================================
+
+        static void BuildTitleAndSettings(Transform canvas, Font font, ClassSelectScreen classSelect)
+        {
+            // ---- Pantalla de titulo (encima de la seleccion de clase) ----
+            var titlePanel = new GameObject("TitlePanel");
+            titlePanel.transform.SetParent(canvas, false);
+            var titleRt = titlePanel.AddComponent<RectTransform>();
+            Stretch(titleRt);
+
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(titlePanel.transform, false);
+            var bg = bgGo.AddComponent<Image>();
+            bg.sprite = LoadUiSprite(OutDir + "/UI/TitleBackground.png");
+            bg.preserveAspect = false;
+            Stretch(bg.rectTransform);
+
+            var shadeGo = new GameObject("Shade");
+            shadeGo.transform.SetParent(titlePanel.transform, false);
+            var shade = shadeGo.AddComponent<Image>();
+            shade.sprite = GetWhiteSprite();
+            shade.color = new Color(0f, 0f, 0.03f, 0.58f);
+            Stretch(shade.rectTransform);
+
+            var gameTitle = MakeText(titlePanel.transform, "GameTitle", font, 84, "EL TESORO DEL BOSQUE");
+            gameTitle.gameObject.AddComponent<LocText>().key = "title.game";
+            var gtrt = gameTitle.rectTransform;
+            gtrt.anchorMin = new Vector2(0.5f, 1f);
+            gtrt.anchorMax = new Vector2(0.5f, 1f);
+            gtrt.pivot = new Vector2(0.5f, 1f);
+            gtrt.anchoredPosition = new Vector2(0f, -150f);
+            gtrt.sizeDelta = new Vector2(1500f, 110f);
+            gameTitle.alignment = TextAnchor.MiddleCenter;
+            gameTitle.color = new Color(1f, 0.9f, 0.6f, 1f);
+
+            var titleScreen = titlePanel.AddComponent<TitleScreen>();
+            titleScreen.panel = titlePanel;
+            titleScreen.classSelect = classSelect;
+
+            MakeMenuButton(titlePanel.transform, font, "title.start", new Vector2(0f, -30f),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, titleScreen.StartGame));
+            MakeMenuButton(titlePanel.transform, font, "title.settings", new Vector2(0f, -215f),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, titleScreen.OpenSettings));
+            MakeMenuButton(titlePanel.transform, font, "title.quit", new Vector2(0f, -400f),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, titleScreen.QuitGame));
+
+            // ---- Configuracion (encima de todo) ----
+            var settingsPanel = new GameObject("SettingsPanel");
+            settingsPanel.transform.SetParent(canvas, false);
+            var spImg = settingsPanel.AddComponent<Image>();
+            spImg.sprite = GetWhiteSprite();
+            spImg.color = new Color(0.05f, 0.05f, 0.07f, 0.94f);
+            Stretch(spImg.rectTransform);
+
+            var settings = settingsPanel.AddComponent<SettingsScreen>();
+            settings.panel = settingsPanel;
+            titleScreen.settingsScreen = settings;
+
+            var settingsTitle = MakeText(settingsPanel.transform, "Title", font, 56, "CONFIGURACION");
+            settingsTitle.gameObject.AddComponent<LocText>().key = "set.title";
+            var strt = settingsTitle.rectTransform;
+            strt.anchorMin = new Vector2(0.5f, 1f);
+            strt.anchorMax = new Vector2(0.5f, 1f);
+            strt.pivot = new Vector2(0.5f, 1f);
+            strt.anchoredPosition = new Vector2(0f, -70f);
+            strt.sizeDelta = new Vector2(900f, 80f);
+            settingsTitle.alignment = TextAnchor.MiddleCenter;
+            settingsTitle.color = new Color(1f, 0.93f, 0.75f, 1f);
+
+            // Pestanas.
+            MakeTabButton(settingsPanel.transform, font, "set.tab.video", -260f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ShowVideoTab));
+            MakeTabButton(settingsPanel.transform, font, "set.tab.audio", 0f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ShowAudioTab));
+            MakeTabButton(settingsPanel.transform, font, "set.tab.general", 260f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ShowGeneralTab));
+
+            // ---- Pestana Video ----
+            var videoTab = MakeTabContent(settingsPanel.transform);
+            settings.videoTab = videoTab;
+            settings.resolutionValue = MakeCycleRow(videoTab.transform, font, "set.resolution", 120f,
+                b => UnityEventTools.AddIntPersistentListener(b.onClick, settings.CycleResolution, -1),
+                b => UnityEventTools.AddIntPersistentListener(b.onClick, settings.CycleResolution, 1));
+            settings.windowModeValue = MakeCycleRow(videoTab.transform, font, "set.windowmode", 20f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleWindowMode),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleWindowMode));
+            settings.shakeValue = MakeCycleRow(videoTab.transform, font, "set.shake", -80f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleShake),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleShake));
+
+            // ---- Pestana Sonido ----
+            var audioTab = MakeTabContent(settingsPanel.transform);
+            settings.audioTab = audioTab;
+            settings.generalSlider = MakeVolumeRow(audioTab.transform, font, "set.vol.general", 120f);
+            settings.effectsSlider = MakeVolumeRow(audioTab.transform, font, "set.vol.effects", 20f);
+            settings.musicSlider = MakeVolumeRow(audioTab.transform, font, "set.vol.music", -80f);
+
+            // ---- Pestana General ----
+            var generalTab = MakeTabContent(settingsPanel.transform);
+            settings.generalTab = generalTab;
+            settings.languageValue = MakeCycleRow(generalTab.transform, font, "set.language", 120f,
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleLanguage),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.ToggleLanguage));
+
+            // Volver.
+            var backGo = MakeMenuButton(settingsPanel.transform, font, "set.back",
+                new Vector2(0f, -430f),
+                b => UnityEventTools.AddVoidPersistentListener(b.onClick, settings.Close));
+
+            settingsPanel.SetActive(false);
+        }
+
+        static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        static GameObject MakeMenuButton(Transform parent, Font font, string locKey,
+            Vector2 position, Action<Button> wire)
+        {
+            var go = new GameObject("Button_" + locKey);
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            // Ribbon ancho del pack (320x128): forma natural de boton de menu.
+            img.sprite = LoadFirstSprite(TS + "UI Elements/Ribbons/BigRibbons 1.png");
+            img.preserveAspect = true;
+            var rt = img.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = position;
+            rt.sizeDelta = new Vector2(460f, 184f);
+
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = img;
+            wire(button);
+
+            var label = MakeText(go.transform, "Label", font, 32, Loc.T(locKey));
+            label.gameObject.AddComponent<LocText>().key = locKey;
+            Stretch(label.rectTransform);
+            label.rectTransform.offsetMax = new Vector2(0f, 14f); // centrado optico en el ribbon
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = new Color(0.98f, 0.95f, 0.88f, 1f);
+            label.raycastTarget = false;
+            return go;
+        }
+
+        static void MakeTabButton(Transform parent, Font font, string locKey, float x,
+            Action<Button> wire)
+        {
+            var go = new GameObject("Tab_" + locKey);
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            // Ribbon pequeno (192x64): proporcion de pestana.
+            img.sprite = LoadFirstSprite(TS + "UI Elements/Ribbons/SmallRibbons 1.png");
+            img.preserveAspect = true;
+            var rt = img.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(x, -170f);
+            rt.sizeDelta = new Vector2(234f, 78f);
+
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = img;
+            wire(button);
+
+            var label = MakeText(go.transform, "Label", font, 28, Loc.T(locKey));
+            label.gameObject.AddComponent<LocText>().key = locKey;
+            Stretch(label.rectTransform);
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.raycastTarget = false;
+        }
+
+        static GameObject MakeTabContent(Transform parent)
+        {
+            var go = new GameObject("TabContent");
+            go.transform.SetParent(parent, false);
+            var rt = go.AddComponent<RectTransform>();
+            Stretch(rt);
+            go.SetActive(false);
+            return go;
+        }
+
+        /// Fila "Etiqueta   [<]  valor  [>]".
+        static Text MakeCycleRow(Transform parent, Font font, string labelKey, float y,
+            Action<Button> wireLeft, Action<Button> wireRight)
+        {
+            var label = MakeText(parent, "Label_" + labelKey, font, 30, Loc.T(labelKey));
+            label.gameObject.AddComponent<LocText>().key = labelKey;
+            var lrt = label.rectTransform;
+            lrt.anchorMin = new Vector2(0.5f, 0.5f);
+            lrt.anchorMax = new Vector2(0.5f, 0.5f);
+            lrt.pivot = new Vector2(0f, 0.5f);
+            lrt.anchoredPosition = new Vector2(-460f, y);
+            lrt.sizeDelta = new Vector2(400f, 46f);
+            label.alignment = TextAnchor.MiddleLeft;
+            label.color = Color.white;
+
+            MakeArrowButton(parent, font, "<", new Vector2(60f, y), wireLeft);
+
+            var value = MakeText(parent, "Value_" + labelKey, font, 30, "");
+            var vrt = value.rectTransform;
+            vrt.anchorMin = new Vector2(0.5f, 0.5f);
+            vrt.anchorMax = new Vector2(0.5f, 0.5f);
+            vrt.anchoredPosition = new Vector2(250f, y);
+            vrt.sizeDelta = new Vector2(300f, 46f);
+            value.alignment = TextAnchor.MiddleCenter;
+            value.color = new Color(1f, 0.9f, 0.6f, 1f);
+
+            MakeArrowButton(parent, font, ">", new Vector2(440f, y), wireRight);
+            return value;
+        }
+
+        static void MakeArrowButton(Transform parent, Font font, string arrow, Vector2 pos,
+            Action<Button> wire)
+        {
+            var go = new GameObject("Arrow" + arrow);
+            go.transform.SetParent(parent, false);
+            var img = go.AddComponent<Image>();
+            img.sprite = LoadFirstSprite(TS + "UI Elements/Buttons/TinySquareBlueButton.png");
+            img.preserveAspect = true;
+            var rt = img.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = new Vector2(58f, 58f);
+
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = img;
+            wire(button);
+
+            var label = MakeText(go.transform, "Label", font, 30, arrow);
+            Stretch(label.rectTransform);
+            label.rectTransform.offsetMax = new Vector2(0f, 6f);
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.raycastTarget = false;
+        }
+
+        /// Fila "Etiqueta  [slider]" con el estilo del pack.
+        static Slider MakeVolumeRow(Transform parent, Font font, string labelKey, float y)
+        {
+            var label = MakeText(parent, "Label_" + labelKey, font, 30, Loc.T(labelKey));
+            label.gameObject.AddComponent<LocText>().key = labelKey;
+            var lrt = label.rectTransform;
+            lrt.anchorMin = new Vector2(0.5f, 0.5f);
+            lrt.anchorMax = new Vector2(0.5f, 0.5f);
+            lrt.pivot = new Vector2(0f, 0.5f);
+            lrt.anchoredPosition = new Vector2(-460f, y);
+            lrt.sizeDelta = new Vector2(400f, 46f);
+            label.alignment = TextAnchor.MiddleLeft;
+            label.color = Color.white;
+
+            // Slider: marco del pack (SmallBar) + relleno dorado + pomo de boton.
+            var sliderGo = new GameObject("Slider_" + labelKey);
+            sliderGo.transform.SetParent(parent, false);
+            var srt = sliderGo.AddComponent<RectTransform>();
+            srt.anchorMin = new Vector2(0.5f, 0.5f);
+            srt.anchorMax = new Vector2(0.5f, 0.5f);
+            srt.anchoredPosition = new Vector2(250f, y);
+            srt.sizeDelta = new Vector2(420f, 48f);
+
+            var frame = new GameObject("Frame");
+            frame.transform.SetParent(sliderGo.transform, false);
+            var frameImg = frame.AddComponent<Image>();
+            frameImg.sprite = GetWhiteSprite();
+            frameImg.color = new Color(0.16f, 0.12f, 0.09f, 0.95f);
+            Stretch(frameImg.rectTransform);
+
+            var fillArea = new GameObject("Fill Area");
+            fillArea.transform.SetParent(sliderGo.transform, false);
+            var faRt = fillArea.AddComponent<RectTransform>();
+            Stretch(faRt);
+            faRt.offsetMin = new Vector2(8f, 10f);
+            faRt.offsetMax = new Vector2(-8f, -10f);
+
+            var fill = new GameObject("Fill");
+            fill.transform.SetParent(fillArea.transform, false);
+            var fillImg = fill.AddComponent<Image>();
+            fillImg.sprite = GetWhiteSprite();
+            fillImg.color = new Color(1f, 0.82f, 0.25f, 1f);
+            var fillRt = fillImg.rectTransform;
+            fillRt.sizeDelta = Vector2.zero;
+
+            var handleArea = new GameObject("Handle Slide Area");
+            handleArea.transform.SetParent(sliderGo.transform, false);
+            var haRt = handleArea.AddComponent<RectTransform>();
+            Stretch(haRt);
+            haRt.offsetMin = new Vector2(14f, 0f);
+            haRt.offsetMax = new Vector2(-14f, 0f);
+
+            var handle = new GameObject("Handle");
+            handle.transform.SetParent(handleArea.transform, false);
+            var handleImg = handle.AddComponent<Image>();
+            handleImg.sprite = LoadFirstSprite(TS + "UI Elements/Buttons/TinyRoundBlueButton.png");
+            handleImg.preserveAspect = true;
+            var hRt = handleImg.rectTransform;
+            hRt.sizeDelta = new Vector2(52f, 52f);
+
+            var slider = sliderGo.AddComponent<Slider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = hRt;
+            slider.targetGraphic = handleImg;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = 1f;
+            return slider;
+        }
+
+        static Texture2D LoadUiTexture(string path, bool repeat)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null)
+            {
+                bool dirty = false;
+                if (importer.wrapMode != (repeat ? TextureWrapMode.Repeat : TextureWrapMode.Clamp))
+                {
+                    importer.wrapMode = repeat ? TextureWrapMode.Repeat : TextureWrapMode.Clamp;
+                    dirty = true;
+                }
+                if (importer.filterMode != FilterMode.Point) { importer.filterMode = FilterMode.Point; dirty = true; }
+                if (dirty) importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        static Sprite LoadUiSprite(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null && importer.textureType != TextureImporterType.Sprite)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static Text MakeText(Transform parent, string name, Font font, int size, string content)

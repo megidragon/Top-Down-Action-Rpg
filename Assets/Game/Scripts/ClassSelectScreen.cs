@@ -28,8 +28,15 @@ namespace TinyRpg
 
         void Start()
         {
+            // El juego arranca pausado; la pantalla de titulo se muestra primero
+            // y llama a Show() al pulsar "Comenzar partida".
             Time.timeScale = 0f;
-            if (panel != null) panel.SetActive(true);
+            if (panel != null) panel.SetActive(false);
+        }
+
+        public void Show()
+        {
+            if (!HasChosen && panel != null) panel.SetActive(true);
         }
 
         void OnDestroy()
@@ -40,7 +47,7 @@ namespace TinyRpg
 
         void Update()
         {
-            if (HasChosen) return;
+            if (HasChosen || panel == null || !panel.activeSelf) return;
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
             if (keyboard.digit1Key.wasPressedThisFrame) Choose(0);

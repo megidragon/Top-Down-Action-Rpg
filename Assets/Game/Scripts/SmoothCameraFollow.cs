@@ -40,6 +40,7 @@ namespace TinyRpg
 
         public static void Shake(float amount)
         {
+            if (!GameSettings.ScreenShake) return; // desactivable en Configuracion
             if (instance != null)
                 instance.trauma = Mathf.Clamp01(instance.trauma + amount);
         }

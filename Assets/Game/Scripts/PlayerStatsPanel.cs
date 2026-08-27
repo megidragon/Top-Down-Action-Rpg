@@ -39,7 +39,7 @@ namespace TinyRpg
             var player = GameManager.Player;
             if (player == null)
             {
-                statsText.text = "Sin personaje";
+                statsText.text = Loc.T("stats.none");
                 return;
             }
             var stats = player.GetComponent<CharacterStats>();
@@ -48,14 +48,14 @@ namespace TinyRpg
 
             statsText.text =
                 $"{player.name.Replace("Player_", "")}\n" +
-                $"Vida  {Mathf.CeilToInt(stats.Health)}/{Mathf.CeilToInt(stats.maxHealth)}\n" +
-                $"Energia  {Mathf.CeilToInt(stats.Energy)}/{Mathf.CeilToInt(stats.maxEnergy)}\n" +
+                $"{Loc.T("stats.health")}  {Mathf.CeilToInt(stats.Health)}/{Mathf.CeilToInt(stats.maxHealth)}\n" +
+                $"{Loc.T("stats.energy")}  {Mathf.CeilToInt(stats.Energy)}/{Mathf.CeilToInt(stats.maxEnergy)}\n" +
                 (attrs != null
-                    ? $"Fuerza  {attrs.strength}\n" +
-                      $"Defensa  {attrs.defense} (-{attrs.defense * 2}%)\n" +
-                      $"Velocidad  {attrs.speed} (+{(attrs.speed - 5) * 2}%)\n"
+                    ? $"{Loc.T("stats.strength")}  {attrs.strength}\n" +
+                      $"{Loc.T("stats.defense")}  {attrs.defense} (-{attrs.defense * 2}%)\n" +
+                      $"{Loc.T("stats.speed")}  {attrs.speed} (+{(attrs.speed - 5) * 2}%)\n"
                     : "") +
-                $"Zona: {(level == 0 ? "Ciudad" : "Nivel " + level)}";
+                $"{Loc.T("stats.zone")}: {(level == 0 ? Loc.T("zone.town") : level.ToString())}";
         }
     }
 }

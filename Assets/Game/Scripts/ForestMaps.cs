@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace TinyRpg
 {
@@ -18,7 +18,7 @@ namespace TinyRpg
             m.FillLand();
             m.playerSpawn = new Vector2(18f, 7f);
             m.exitPos = new Vector2(18f, 21.5f);
-            m.exitLabel = "ENTRAR AL BOSQUE";
+            m.exitLabel = "exit.enter_forest";
 
             m.TreeWall(3, m.exitPos, 2.6f);
 
@@ -60,7 +60,7 @@ namespace TinyRpg
             m.FillLand();
             m.playerSpawn = new Vector2(4.5f, 9f);
             m.exitPos = new Vector2(23f, 9f);
-            m.exitLabel = "SEGUIR ADENTRANDOSE";
+            m.exitLabel = "exit.rest";
 
             m.TreeWall(3, m.exitPos, 2.4f);
             m.PatchEllipse(13f, 9f, 6.5f, 4.5f, 1); // claro calido de hierba clara
@@ -271,7 +271,7 @@ namespace TinyRpg
             m.FillLand();
             m.playerSpawn = new Vector2(4.5f, h / 2f);
             m.exitPos = new Vector2(w - 3f, h / 2f);
-            m.exitLabel = "SIGUIENTE NIVEL";
+            m.exitLabel = "exit.next";
             m.TreeWall(3, m.exitPos, 2.4f);
             rng = m.rng;
             return m;

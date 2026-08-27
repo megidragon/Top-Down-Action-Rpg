@@ -37,7 +37,8 @@ namespace TinyRpg
             textGo.transform.SetParent(transform, false);
             textGo.transform.localPosition = new Vector3(0f, 1.5f, 0f);
             label = textGo.AddComponent<TextMesh>();
-            label.text = labelText + "\n(bloqueado)";
+            // labelText es una clave de localizacion (exit.*).
+            label.text = Loc.T(labelText) + "\n" + Loc.T("exit.locked");
             label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             label.fontSize = 64;
             label.characterSize = 0.042f;
@@ -57,7 +58,7 @@ namespace TinyRpg
                 YSorter.OrderForY(transform.position.y) + 3);
             ring.transform.SetParent(transform, false);
             ring.transform.localPosition = Vector3.zero;
-            if (label != null) label.text = labelText;
+            if (label != null) label.text = Loc.T(labelText);
         }
 
         void Update()

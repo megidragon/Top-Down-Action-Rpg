@@ -47,8 +47,15 @@ namespace TinyRpg
             // Esperas en tiempo real: el juego arranca pausado (timeScale 0)
             // mientras se muestra la seleccion de clase.
             yield return new WaitForSecondsRealtime(0.7f);
+            if (TitleScreen.Instance != null)
+            {
+                Capture("00a_title");
+                yield return new WaitForSecondsRealtime(0.4f);
+                TitleScreen.Instance.StartGame();
+            }
             if (ClassSelectScreen.Instance != null && !ClassSelectScreen.Instance.HasChosen)
             {
+                yield return new WaitForSecondsRealtime(0.3f);
                 Capture("00_class_select");
                 yield return new WaitForSecondsRealtime(0.5f);
                 ClassSelectScreen.Instance.Choose(3); // verificar el Monje
