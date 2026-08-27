@@ -27,11 +27,35 @@ namespace TinyRpg
         readonly Slot[] slots = new Slot[SlotCount];
         CharacterStats stats;
 
+        /// Las monedas ya no ocupan slot: contador propio con su HUD.
+        public int Coins { get; private set; }
+
         public event Action Changed;
 
         void Awake()
         {
             stats = GetComponent<CharacterStats>();
+        }
+
+        public void AddCoins(int amount)
+        {
+            Coins += amount;
+            Changed?.Invoke();
+        }
+
+        public bool TrySpendCoins(int amount)
+        {
+            if (Coins < amount) return false;
+            Coins -= amount;
+            Changed?.Invoke();
+            return true;
+        }
+
+        public void ResetForNewRun()
+        {
+            Coins = 0;
+            for (int i = 0; i < SlotCount; i++) slots[i] = default;
+            Changed?.Invoke();
         }
 
         public Slot GetSlot(int index) => slots[index];
@@ -47,6 +71,13 @@ namespace TinyRpg
         public bool AddItem(ItemType type, int amount = 1)
         {
             if (type == ItemType.None || amount <= 0) return false;
+
+            // Las monedas van a su contador, no a un slot.
+            if (type == ItemType.Coin)
+            {
+                AddCoins(amount);
+                return true;
+            }
 
             // Apilar sobre un slot existente del mismo tipo.
             for (int i = 0; i < SlotCount; i++)

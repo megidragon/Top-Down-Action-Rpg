@@ -13,7 +13,7 @@ namespace TinyRpg
     /// No hace nada en una partida normal.
     public static class VerifyCapture
     {
-        const string VerifyRequest = "Temp/tinyrpg_verify_request.txt";
+        const string VerifyRequest = "Library/tinyrpg_verify_request.txt";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Init()
@@ -65,8 +65,17 @@ namespace TinyRpg
             if (cam != null)
             {
                 if (follow != null) follow.enabled = false;
-                cam.orthographicSize = 34f;
-                cam.transform.position = new Vector3(48f, 32f, -10f);
+                var map = GameFlow.Instance != null ? GameFlow.Instance.CurrentMap : null;
+                if (map != null)
+                {
+                    cam.orthographicSize = map.H / 2f + 2f;
+                    cam.transform.position = new Vector3(map.W / 2f, map.H / 2f, -10f);
+                }
+                else
+                {
+                    cam.orthographicSize = 20f;
+                    cam.transform.position = new Vector3(18f, 12f, -10f);
+                }
             }
             yield return new WaitForSecondsRealtime(0.5f);
             Capture("02_overview");
@@ -83,7 +92,7 @@ namespace TinyRpg
             Capture("04_gameplay_b");
             yield return new WaitForSecondsRealtime(0.8f);
 
-            File.WriteAllText("Temp/tinyrpg_verify_done.txt", "OK " + DateTime.Now.ToString("HH:mm:ss"));
+            File.WriteAllText("Library/tinyrpg_verify_done.txt", "OK " + DateTime.Now.ToString("HH:mm:ss"));
 
             if (exitEditorWhenDone)
                 UnityEditor.EditorApplication.Exit(0);

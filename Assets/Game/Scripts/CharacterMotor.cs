@@ -21,6 +21,7 @@ namespace TinyRpg
 
         Rigidbody2D rb;
         CharacterStats stats;
+        CharacterAttributes attributes;
         Vector2 moveInput;
         Vector2 knockback;
         Vector2 dashDir;
@@ -37,6 +38,7 @@ namespace TinyRpg
         {
             rb = GetComponent<Rigidbody2D>();
             stats = GetComponent<CharacterStats>();
+            attributes = GetComponent<CharacterAttributes>();
             rb.gravityScale = 0f;
             rb.freezeRotation = true;
             rb.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -72,6 +74,10 @@ namespace TinyRpg
         public void SetExternalDrive(Vector2 velocity) => externalDrive = velocity;
         public void ClearExternalDrive() => externalDrive = Vector2.zero;
 
+        /// Re-cachea el componente de atributos (para atributos anadidos despues
+        /// de instanciar, p.ej. los de los enemigos por nivel).
+        public void RefreshAttributesCache() => attributes = GetComponent<CharacterAttributes>();
+
         /// Posicion fisica real (rb.position): con interpolacion activa, el
         /// transform puede ir por detras dentro del bucle fijo.
         public Vector2 BodyPosition => rb != null ? rb.position : (Vector2)transform.position;
@@ -94,6 +100,9 @@ namespace TinyRpg
                 return;
             }
 
+            // La velocidad escala con el atributo de velocidad (+2% por punto).
+            float speedScale = attributes != null ? attributes.SpeedMultiplier : 1f;
+
             Vector2 velocity;
             if (externalDrive.sqrMagnitude > 0.0001f)
             {
@@ -108,7 +117,7 @@ namespace TinyRpg
             }
             else
             {
-                velocity = moveInput * (moveSpeed * Mathf.Clamp01(MoveControl));
+                velocity = moveInput * (moveSpeed * speedScale * Mathf.Clamp01(MoveControl));
             }
 
             velocity += knockback;

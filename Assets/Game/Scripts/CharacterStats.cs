@@ -8,8 +8,8 @@ namespace TinyRpg
     public class CharacterStats : MonoBehaviour
     {
         public float maxHealth = 100f;
-        public float maxEnergy = 100f;
-        public float energyRegenPerSecond = 25f;
+        public float maxEnergy = 50f;             // energia reducida a la mitad
+        public float energyRegenPerSecond = 12.5f; // y regeneracion a media velocidad
         public int team; // 0 = jugador, 1 = enemigos
 
         public float Health { get; private set; }
@@ -61,6 +61,9 @@ namespace TinyRpg
         public void TakeDamage(float amount, Vector2 hitDirection)
         {
             if (IsDead) return;
+            // La defensa reduce el dano recibido (2% por punto).
+            var attrs = GetComponent<CharacterAttributes>();
+            if (attrs != null) amount *= attrs.DamageTakenMultiplier;
             Health = Mathf.Max(0f, Health - amount);
             HealthChanged?.Invoke(Health, maxHealth);
             Damaged?.Invoke(hitDirection);

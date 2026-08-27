@@ -246,7 +246,9 @@ namespace TinyRpg
                 }
 
                 // Impacto: dano + empuje en la direccion contraria al atacante.
-                float damage = kind == AttackKind.Sweep ? sweepDamage : stabDamage;
+                // La fuerza del atacante escala el dano (5 puntos = dano base).
+                float damage = (kind == AttackKind.Sweep ? sweepDamage : stabDamage)
+                    * CharacterAttributes.DamageOf(this);
                 float knockback = kind == AttackKind.Sweep ? sweepKnockback : stabKnockback;
                 Vector2 pushDir = to.sqrMagnitude > 0.001f ? to.normalized : dir;
 

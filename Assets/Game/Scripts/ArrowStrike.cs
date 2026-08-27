@@ -83,12 +83,14 @@ namespace TinyRpg
         {
             int count = Physics2D.OverlapCircle(target, radius + 0.35f,
                 new ContactFilter2D().NoFilter(), overlapBuffer);
+            var alreadyHit = new System.Collections.Generic.HashSet<CharacterStats>();
             for (int i = 0; i < count; i++)
             {
                 var col = overlapBuffer[i];
                 if (col == null || col.attachedRigidbody == null) continue;
                 var victim = col.attachedRigidbody.GetComponent<CharacterStats>();
                 if (victim == null || victim.IsDead || victim.team == attackerTeam) continue;
+                if (!alreadyHit.Add(victim)) continue;
 
                 Vector2 victimCenter = (Vector2)col.attachedRigidbody.worldCenterOfMass;
                 if (Vector2.Distance(victimCenter, target) > radius + 0.35f) continue;

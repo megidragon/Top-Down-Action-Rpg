@@ -54,6 +54,9 @@ namespace TinyRpg
             home = transform.position;
             wanderTarget = home;
             thinkTimer = Random.value * 0.2f;
+
+            // Ajustes por clase: el arquero mantiene la distancia (kiting).
+            if (combat is ArcherCombat) preferredDistance = 4.5f;
         }
 
         void OnDestroy()
@@ -129,8 +132,48 @@ namespace TinyRpg
         {
             if (combat.IsBusy || motor.IsDashing || attackPauseTimer > 0f) return;
 
-            Vector2 aim = ((Vector2)player.transform.position - (Vector2)transform.position).normalized;
+            Vector2 playerPos = player.transform.position;
+            Vector2 aim = (playerPos - (Vector2)transform.position).normalized;
+            combat.AimPoint = playerPos; // las clases de area apuntan al jugador
 
+            // --- Arquero enemigo: rafaga a media distancia, lluvia a larga ---
+            if (combat is ArcherCombat)
+            {
+                if (dist <= 6f && stats.Energy >= 25f)
+                {
+                    combat.OnSecondaryDown(aim);
+                    attackPauseTimer = Random.Range(1.1f, 1.8f);
+                }
+                else if (dist <= 10f && stats.Energy >= 25f)
+                {
+                    combat.OnPrimaryDown(aim);
+                    StartCoroutine(ReleaseArtillery(player));
+                    attackPauseTimer = Random.Range(1.6f, 2.4f);
+                }
+                return;
+            }
+
+            // --- Monje enemigo: curarse herido, embestir de lejos, patear cerca ---
+            if (combat is MonkCombat)
+            {
+                if (stats.Health < stats.maxHealth * 0.5f)
+                {
+                    combat.OnSpecial(aim); // curacion (cooldown interno de 5s)
+                }
+                if (dist > 2.2f && dist <= 7f && stats.Energy >= 25f && Random.value < 0.6f)
+                {
+                    combat.OnSecondaryDown(aim); // embestida hacia el jugador
+                    attackPauseTimer = Random.Range(0.8f, 1.4f);
+                }
+                else if (dist <= 1.6f && stats.Energy >= 25f)
+                {
+                    combat.TrySweep(aim); // patada
+                    attackPauseTimer = Random.Range(0.5f, 1f);
+                }
+                return;
+            }
+
+            // --- Cuerpo a cuerpo (guerrero / lancero) ---
             // Dash para cerrar distancia (tambien cuesta 25 de energia).
             if (dist > 2.8f && dist < 6f && stats.Energy >= 50f && Random.value < dashChance)
             {
@@ -149,6 +192,16 @@ namespace TinyRpg
                 combat.TryStab(aim);
                 attackPauseTimer = Random.Range(0.6f, 1.2f);
             }
+        }
+
+        /// El arquero enemigo suelta la lluvia de flecha tras un breve apuntado
+        /// (el anillo fijado da al jugador medio segundo para esquivar).
+        IEnumerator ReleaseArtillery(PlayerController player)
+        {
+            yield return new WaitForSeconds(0.45f);
+            if (stats.IsDead || player == null) yield break;
+            combat.AimPoint = player.transform.position;
+            combat.OnPrimaryUp(((Vector2)player.transform.position - (Vector2)transform.position).normalized);
         }
 
         void OnPlayerAttackStarted(CharacterCombat playerCombat, CharacterCombat.AttackKind kind)

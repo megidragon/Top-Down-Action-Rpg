@@ -12,9 +12,11 @@ namespace TinyRpg.EditorTools
     [InitializeOnLoad]
     public static class AutoBuild
     {
-        const string BuildRequest = "Temp/tinyrpg_build_request.txt";
-        const string VerifyRequest = "Temp/tinyrpg_verify_request.txt";
-        const string ResultFile = "Temp/tinyrpg_build_result.txt";
+        // En Library/ y no en Temp/: Unity vacia Temp/ en cada arranque del editor
+        // y las senales armadas durante un reinicio se perderian.
+        const string BuildRequest = "Library/tinyrpg_build_request.txt";
+        const string VerifyRequest = "Library/tinyrpg_verify_request.txt";
+        const string ResultFile = "Library/tinyrpg_build_result.txt";
 
         static double nextCheck;
 

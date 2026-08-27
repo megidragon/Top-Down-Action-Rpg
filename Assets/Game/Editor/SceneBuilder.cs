@@ -14,9 +14,10 @@ using UnityEngine.UI;
 
 namespace TinyRpg.EditorTools
 {
-    /// Construye el juego completo: animadores, prefabs, mapa (tilemaps + colision),
-    /// decoracion, unidades, camara, HUD y guarda la escena Game.unity.
-    /// Ejecutable desde el menu o por linea de comandos (batchmode -executeMethod).
+    /// Construye la escena base del roguelike: sistemas, prefabs, MapLibrary con
+    /// todas las referencias de assets, camara, HUD y seleccion de clase. Los
+    /// mapas (ciudad, niveles del bosque, campamentos) los pinta GameFlow en
+    /// runtime; aqui NO se hornea ningun mapa.
     public static class SceneBuilder
     {
         const string TS = "Assets/Tiny Swords/";
@@ -25,39 +26,12 @@ namespace TinyRpg.EditorTools
         const string OutDir = "Assets/Game";
         const string ScenePath = OutDir + "/Scenes/Game.unity";
 
-        // --- Indices del autotile de 16 piezas (mascara de vecinos N=1,S=2,E=4,W=8) ---
-        static readonly int[] FlatByMask = BuildMaskTable(
-            single: 27, capW: 24, capE: 26, horiz: 25, capS: 3, capN: 19, vert: 11,
-            cornerNW: 0, cornerNE: 2, cornerSW: 16, cornerSE: 18,
-            edgeN: 1, edgeS: 17, edgeW: 8, edgeE: 10, center: 9);
-
-        static readonly int[] ElevByMask = BuildMaskTable(
-            single: 31, capW: 28, capE: 30, horiz: 29, capS: 7, capN: 23, vert: 15,
-            cornerNW: 4, cornerNE: 6, cornerSW: 20, cornerSE: 22,
-            edgeN: 5, edgeS: 21, edgeW: 12, edgeE: 14, center: 13);
-
-        static int[] BuildMaskTable(int single, int capW, int capE, int horiz,
-            int capS, int capN, int vert, int cornerNW, int cornerNE, int cornerSW, int cornerSE,
-            int edgeN, int edgeS, int edgeW, int edgeE, int center)
-        {
-            // bits de vecinos presentes: N=1, S=2, E=4, W=8
-            var t = new int[16];
-            t[0] = single;
-            t[4] = capW; t[8] = capE; t[12] = horiz;
-            t[2] = capS; t[1] = capN; t[3] = vert;
-            t[6] = cornerNW; t[10] = cornerNE; t[5] = cornerSW; t[9] = cornerSE;
-            t[14] = edgeN; t[13] = edgeS; t[7] = edgeW; t[11] = edgeE;
-            t[15] = center;
-            return t;
-        }
-
         static System.Random rng;
-        static RuntimeAnimatorController pawnController;
-        static Sprite coinIconSprite;
-        static Sprite potionIconSprite;
+        static Sprite coinIconSprite;   // moneda dropeada (Tiny Fantasy)
+        static Sprite potionIconSprite; // pocion del inventario (Tiny Fantasy)
 
-        // Celda deseada de la aldea del jugador. MapValidation valida la
-        // conectividad del mapa desde este mismo punto.
+        // Conservado por compatibilidad con MapValidation (valida el generador
+        // de isla antiguo, ya no usado por el juego).
         public static readonly Vector2Int PlayerSpawnHint = new Vector2Int(46, 20);
 
         [MenuItem("TinyRpg/Construir escena del juego")]
@@ -65,42 +39,55 @@ namespace TinyRpg.EditorTools
         {
             try
             {
-                rng = new System.Random(20260826);
+                rng = new System.Random(20260827);
                 EnsureFolders();
 
-                var controllers = BuildWarriorControllers();
-                var lancerController = BuildLancerController();
+                // ---- Animadores ----
+                var warriorBlue = BuildWarriorController("Blue");
+                var warriorRed = BuildWarriorController("Red");
+                var lancerBlue = BuildLancerController("Blue");
+                var lancerRed = BuildLancerController("Red");
+                var archerBlue = BuildArcherController("Blue");
+                var archerRed = BuildArcherController("Red");
+                var monkBlue = BuildMonkController("Blue");
+                var monkRed = BuildMonkController("Red");
                 var sheepController = BuildSheepController();
-                pawnController = BuildPawnController();
+                var pawnController = BuildPawnNpcController();
+
+                // ---- Iconos ----
                 coinIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Coins/Coins_Medium_Gold.png");
                 potionIconSprite = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Red.png");
-                var map = MapGenerator.Generate();
 
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-                BuildTilemaps(map);
-
-                var playerWarrior = BuildCharacterPrefab("Player_Warrior", controllers["Blue"], "Blue",
+                // ---- Prefabs ----
+                var playerWarrior = BuildCharacterPrefab("Player_Warrior", warriorBlue, "Blue",
                     true, WarriorPlayerTuning());
-                var playerLancer = BuildCharacterPrefab("Player_Lancer", lancerController, "Blue",
+                var playerLancer = BuildCharacterPrefab("Player_Lancer", lancerBlue, "Blue",
                     true, LancerPlayerTuning());
-                var playerArcher = BuildCharacterPrefab("Player_Archer", BuildArcherController(), "Blue",
+                var playerArcher = BuildCharacterPrefab("Player_Archer", archerBlue, "Blue",
                     true, ArcherPlayerTuning());
-                var playerMonk = BuildCharacterPrefab("Player_Monk", BuildMonkController(), "Blue",
+                var playerMonk = BuildCharacterPrefab("Player_Monk", monkBlue, "Blue",
                     true, MonkPlayerTuning());
-                var enemyPrefabs = new Dictionary<string, GameObject>
-                {
-                    ["Red"] = BuildCharacterPrefab("Enemy_Red", controllers["Red"], "Red", false),
-                    ["Purple"] = BuildCharacterPrefab("Enemy_Purple", controllers["Purple"], "Purple", false),
-                    ["Yellow"] = BuildCharacterPrefab("Enemy_Yellow", controllers["Yellow"], "Yellow", false),
-                };
+
+                var enemyWarrior = BuildCharacterPrefab("Enemy_Warrior", warriorRed, "Red", false);
+                var enemyLancer = BuildCharacterPrefab("Enemy_Lancer", lancerRed, "Red",
+                    false, EnemyLancerTuning());
+                var enemyArcher = BuildCharacterPrefab("Enemy_Archer", archerRed, "Red",
+                    false, EnemyArcherTuning());
+                var enemyMonk = BuildCharacterPrefab("Enemy_Monk", monkRed, "Red",
+                    false, EnemyMonkTuning());
                 var sheepPrefab = BuildSheepPrefab(sheepController);
+                var pawnPrefab = BuildPawnNpcPrefab(pawnController);
 
-                var world = PopulateWorld(map, enemyPrefabs, sheepPrefab);
-
-                var cameraFollow = BuildCameraAndLight(world.spawnPosition);
+                // ---- Escena ----
+                var layers = BuildEmptyTilemaps();
+                var cameraFollow = BuildCameraAndLight();
+                BuildMapLibrary(layers,
+                    new[] { enemyWarrior, enemyLancer, enemyArcher, enemyMonk },
+                    sheepPrefab, pawnPrefab);
                 BuildHudAndManagers(playerWarrior, playerLancer, playerArcher, playerMonk,
-                    world.spawnPosition, cameraFollow);
+                    cameraFollow);
 
                 EditorSceneManager.SaveScene(scene, ScenePath);
                 EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -128,184 +115,84 @@ namespace TinyRpg.EditorTools
         //  ANIMADORES
         // =================================================================
 
-        static Dictionary<string, RuntimeAnimatorController> BuildWarriorControllers()
+        static RuntimeAnimatorController BuildWarriorController(string color)
         {
-            var result = new Dictionary<string, RuntimeAnimatorController>();
-            foreach (var color in new[] { "Blue", "Red", "Purple", "Yellow" })
-            {
-                string path = $"{OutDir}/Anim/Warrior_{color}.controller";
-                AssetDatabase.DeleteAsset(path);
-                var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
-                var sm = controller.layers[0].stateMachine;
-
-                var idle = AddState(sm, "Idle", FindClip($"Warrior_Idle_{color}"), loop: true);
-                AddState(sm, "Run", FindClip($"Warrior_Run_{color}"), loop: true);
-                AddState(sm, "Attack1", FindClip($"Warrior_Attack1_{color}"), loop: false);
-                AddState(sm, "Attack2", FindClip($"Warrior_Attack2_{color}"), loop: false);
-                AddState(sm, "Guard", FindClip($"Warrior_Guard_{color}"), loop: true);
-                sm.defaultState = idle;
-                result[color] = controller;
-            }
-            return result;
+            var (controller, sm) = NewController($"Warrior_{color}_Player");
+            var idle = AddState(sm, "Idle", FindClip($"Warrior_Idle_{color}"), loop: true);
+            AddState(sm, "Run", FindClip($"Warrior_Run_{color}"), loop: true);
+            AddState(sm, "Attack1", FindClip($"Warrior_Attack1_{color}"), loop: false);
+            AddState(sm, "Attack2", FindClip($"Warrior_Attack2_{color}"), loop: false);
+            AddState(sm, "Guard", FindClip($"Warrior_Guard_{color}"), loop: true);
+            sm.defaultState = idle;
+            return controller;
         }
 
-        static RuntimeAnimatorController BuildLancerController()
+        static RuntimeAnimatorController BuildLancerController(string color)
         {
-            string path = $"{OutDir}/Anim/Lancer_Blue_Player.controller";
-            AssetDatabase.DeleteAsset(path);
-            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var sm = controller.layers[0].stateMachine;
+            var (controller, sm) = NewController($"Lancer_{color}_Player");
             // Ojo: los .anim del Lancer llevan un espacio tras "Lancer_".
-            var idle = AddState(sm, "Idle", FindClip("Lancer_Idle_Blue"), loop: true);
-            AddState(sm, "Run", FindClip("Lancer_ Run_Blue"), loop: true);
-            AddState(sm, "Attack1", FindClip("Lancer_ Right_Attack_Blue"), loop: false);
-            AddState(sm, "Attack2", FindClip("Lancer_ Right_Attack_Blue"), loop: false);
-            AddState(sm, "Guard", FindClip("Lancer_ Right_Defence_Blue"), loop: true);
+            var idle = AddState(sm, "Idle", FindClip($"Lancer_Idle_{color}"), loop: true);
+            AddState(sm, "Run", FindClip($"Lancer_ Run_{color}"), loop: true);
+            AddState(sm, "Attack1", FindClip($"Lancer_ Right_Attack_{color}"), loop: false);
+            AddState(sm, "Attack2", FindClip($"Lancer_ Right_Attack_{color}"), loop: false);
+            AddState(sm, "Guard", FindClip($"Lancer_ Right_Defence_{color}"), loop: true);
             sm.defaultState = idle;
             return controller;
         }
 
-        static RuntimeAnimatorController BuildArcherController()
+        static RuntimeAnimatorController BuildArcherController(string color)
         {
-            string path = $"{OutDir}/Anim/Archer_Blue_Player.controller";
-            AssetDatabase.DeleteAsset(path);
-            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var sm = controller.layers[0].stateMachine;
-            var idle = AddState(sm, "Idle", FindClip("Archer_Idle_Blue"), loop: true);
-            AddState(sm, "Run", FindClip("Archer_Run_Blue"), loop: true);
-            AddState(sm, "Attack1", FindClip("Archer_Shoot_Blue"), loop: false);
-            AddState(sm, "Attack2", FindClip("Archer_Shoot_Blue"), loop: false);
-            // El arquero no tiene animacion de guardia: mantiene Idle y el arco
-            // azul del parry pone el visual.
-            AddState(sm, "Guard", FindClip("Archer_Idle_Blue"), loop: true);
+            var (controller, sm) = NewController($"Archer_{color}_Player");
+            var idle = AddState(sm, "Idle", FindClip($"Archer_Idle_{color}"), loop: true);
+            AddState(sm, "Run", FindClip($"Archer_Run_{color}"), loop: true);
+            AddState(sm, "Attack1", FindClip($"Archer_Shoot_{color}"), loop: false);
+            AddState(sm, "Attack2", FindClip($"Archer_Shoot_{color}"), loop: false);
+            AddState(sm, "Guard", FindClip($"Archer_Idle_{color}"), loop: true);
             sm.defaultState = idle;
             return controller;
         }
 
-        static RuntimeAnimatorController BuildMonkController()
+        static RuntimeAnimatorController BuildMonkController(string color)
         {
-            string path = $"{OutDir}/Anim/Monk_Blue_Player.controller";
-            AssetDatabase.DeleteAsset(path);
-            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var sm = controller.layers[0].stateMachine;
-            var idle = AddState(sm, "Idle", FindClip("Monk_Idle_Blue"), loop: true);
-            AddState(sm, "Run", FindClip("Monk_Run_Blue"), loop: true);
-            // El monje no tiene animacion de ataque: la patada usa Idle + VFX.
-            AddState(sm, "Attack1", FindClip("Monk_Idle_Blue"), loop: false);
-            AddState(sm, "Attack2", FindClip("Monk_Idle_Blue"), loop: false);
-            AddState(sm, "Guard", FindClip("Monk_Idle_Blue"), loop: true);
-            AddState(sm, "Heal", FindClip("Monk_Heal_Blue"), loop: false);
+            var (controller, sm) = NewController($"Monk_{color}_Player");
+            var idle = AddState(sm, "Idle", FindClip($"Monk_Idle_{color}"), loop: true);
+            AddState(sm, "Run", FindClip($"Monk_Run_{color}"), loop: true);
+            AddState(sm, "Attack1", FindClip($"Monk_Idle_{color}"), loop: false);
+            AddState(sm, "Attack2", FindClip($"Monk_Idle_{color}"), loop: false);
+            AddState(sm, "Guard", FindClip($"Monk_Idle_{color}"), loop: true);
+            AddState(sm, "Heal", FindClip($"Monk_Heal_{color}"), loop: false);
             sm.defaultState = idle;
             return controller;
-        }
-
-        /// Ajustes por clase aplicados sobre el prefab base del personaje.
-        class UnitTuning
-        {
-            public string idlePngPath;
-            public bool ranged;
-            public bool monk;
-            public float maxHealth = 150f;
-            public float spriteYOffset = 0.62f;
-            public float sweepRange = 1.8f;
-            public float sweepKnockback = 5f;
-            public float sweepDamage = 20f;
-            public float stabRange = 3.0f;
-            public float stabDamage = 30f;
-            public float attackDuration = 0.4f;
-            public float hitDelay = 0.18f;
-            public float attackRecovery = 0.1f;
-        }
-
-        // Guerrero: linea base. Ciclo de ataque = 0.4 + 0.1 = 0.5 s.
-        static UnitTuning WarriorPlayerTuning() => new UnitTuning();
-
-        // Arquero: fragil pero de rango. La lluvia de flecha usa el ciclo del
-        // lancero (0.55 + 0.325 = 0.875 s); el resto de parametros de rango viven
-        // como defaults serializados en ArcherCombat.
-        static UnitTuning ArcherPlayerTuning() => new UnitTuning
-        {
-            idlePngPath = TS + "Units/Blue Units/Archer/Archer_Idle.png",
-            ranged = true,
-            maxHealth = 75f,
-            attackDuration = 0.55f,
-            attackRecovery = 0.325f,
-        };
-
-        // Monje: patada corta con dano de guerrero pero empujon enorme; embestida
-        // aturdidora y curacion en area en vez de parry. Sus parametros especificos
-        // viven como defaults serializados en MonkCombat.
-        static UnitTuning MonkPlayerTuning() => new UnitTuning
-        {
-            idlePngPath = TS + "Units/Blue Units/Monk/Idle.png",
-            monk = true,
-            maxHealth = 125f,
-            sweepRange = 1.4f,
-            sweepDamage = 20f,     // igual que el guerrero
-            sweepKnockback = 12f,  // pero empuja mucho mas lejos
-            attackDuration = 0.35f,
-            hitDelay = 0.14f,
-            attackRecovery = 0.1f,
-        };
-
-        // Lancero: menos vida (75% del guerrero), mas alcance y algo mas de dano,
-        // pero recuperacion al 175% del ciclo del guerrero (0.875 s por golpe).
-        static UnitTuning LancerPlayerTuning() => new UnitTuning
-        {
-            idlePngPath = TS + "Units/Blue Units/Lancer/Lancer_Idle.png",
-            maxHealth = 112f,
-            spriteYOffset = 0.68f,
-            sweepRange = 2.5f,
-            sweepDamage = 25f,
-            stabRange = 3.8f,
-            stabDamage = 36f,
-            attackDuration = 0.55f,
-            hitDelay = 0.24f,
-            attackRecovery = 0.325f,
-        };
-
-        static RuntimeAnimatorController BuildPawnController()
-        {
-            string path = $"{OutDir}/Anim/Pawn_Vendor.controller";
-            AssetDatabase.DeleteAsset(path);
-            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var sm = controller.layers[0].stateMachine;
-            var idle = AddState(sm, "Idle", FindClip("Pawn_Idle_Blue"), loop: true);
-            sm.defaultState = idle;
-            return controller;
-        }
-
-        /// Carga un icono de Tiny Fantasy Icons asegurando importacion como Sprite
-        /// con 256 ppu (los PNG son de 256x256 -> 1 unidad de mundo).
-        static Sprite LoadIcon(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null)
-            {
-                Debug.LogWarning("[SceneBuilder] Icono no encontrado: " + path);
-                return null;
-            }
-            if (importer.textureType != TextureImporterType.Sprite ||
-                !Mathf.Approximately(importer.spritePixelsPerUnit, 256f))
-            {
-                importer.textureType = TextureImporterType.Sprite;
-                importer.spritePixelsPerUnit = 256f;
-                importer.SaveAndReimport();
-            }
-            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static RuntimeAnimatorController BuildSheepController()
         {
-            string path = $"{OutDir}/Anim/Sheep.controller";
-            AssetDatabase.DeleteAsset(path);
-            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
-            var sm = controller.layers[0].stateMachine;
+            var (controller, sm) = NewController("Sheep");
             var idle = AddState(sm, "Idle", FindClip("Sheep_Idle"), loop: true);
             AddState(sm, "Move", FindClip("Sheep_Run"), loop: true);
             AddState(sm, "Grass", FindClip("Sheep_Grass"), loop: true);
             sm.defaultState = idle;
             return controller;
+        }
+
+        static RuntimeAnimatorController BuildPawnNpcController()
+        {
+            var (controller, sm) = NewController("Pawn_Vendor");
+            var idle = AddState(sm, "Idle", FindClip("Pawn_Idle_Blue"), loop: true);
+            AddState(sm, "Run", FindClip("Pawn_Run_Blue"), loop: true);
+            // Los .anim del pawn llevan espacio en el nombre de la herramienta.
+            AddState(sm, "Mine", FindClip("Pawn_Interact Pickaxe_Blue"), loop: true);
+            AddState(sm, "Chop", FindClip("Pawn_Interact Axe_Blue"), loop: true);
+            sm.defaultState = idle;
+            return controller;
+        }
+
+        static (AnimatorController, AnimatorStateMachine) NewController(string name)
+        {
+            string path = $"{OutDir}/Anim/{name}.controller";
+            AssetDatabase.DeleteAsset(path);
+            var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
+            return (controller, controller.layers[0].stateMachine);
         }
 
         static AnimatorState AddState(AnimatorStateMachine sm, string name, AnimationClip clip, bool loop)
@@ -338,25 +225,9 @@ namespace TinyRpg.EditorTools
         }
 
         // =================================================================
-        //  CARGA DE SPRITES
+        //  CARGA DE ASSETS
         // =================================================================
 
-        static Sprite LoadFirstSprite(string path)
-        {
-            var sprites = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Sprite>().ToList();
-            if (sprites.Count == 0)
-            {
-                Debug.LogWarning("[SceneBuilder] Sin sprites en " + path);
-                return null;
-            }
-            var zero = sprites.FirstOrDefault(s => s.name.EndsWith("_0"));
-            if (zero != null) return zero;
-            sprites.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
-            return sprites[0];
-        }
-
-        /// Sprite blanco generado (los rellenos del pack son rojos y no se pueden
-        /// tintar a otros colores por multiplicacion).
         static Sprite GetWhiteSprite()
         {
             string path = OutDir + "/Tiles/White.png";
@@ -378,6 +249,38 @@ namespace TinyRpg.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
+        static Sprite LoadIcon(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning("[SceneBuilder] Icono no encontrado: " + path);
+                return null;
+            }
+            if (importer.textureType != TextureImporterType.Sprite ||
+                !Mathf.Approximately(importer.spritePixelsPerUnit, 256f))
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spritePixelsPerUnit = 256f;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        static Sprite LoadFirstSprite(string path)
+        {
+            var sprites = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Sprite>().ToList();
+            if (sprites.Count == 0)
+            {
+                Debug.LogWarning("[SceneBuilder] Sin sprites en " + path);
+                return null;
+            }
+            var zero = sprites.FirstOrDefault(s => s.name.EndsWith("_0"));
+            if (zero != null) return zero;
+            sprites.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+            return sprites[0];
+        }
+
         static TileBase LoadTile(string path)
         {
             var tile = AssetDatabase.LoadAssetAtPath<TileBase>(path);
@@ -394,199 +297,103 @@ namespace TinyRpg.EditorTools
         }
 
         // =================================================================
-        //  TILEMAPS
+        //  AJUSTES POR CLASE
         // =================================================================
 
-        static void BuildTilemaps(MapData map)
+        class UnitTuning
         {
-            int W = MapData.W, H = MapData.H;
-
-            var gridGo = new GameObject("World");
-            gridGo.AddComponent<Grid>();
-
-            var waterBgTile = LoadTile(TileSettingsDir + "Water Background color.asset");
-            var foamTile = LoadTile(TileSettingsDir + "Water Tile animated.asset");
-            var shadowTile = LoadTile(TileSettingsDir + "Shadow.asset");
-            var c1 = LoadColorTiles(1);
-            var c2 = LoadColorTiles(2);
-            var c3 = LoadColorTiles(3);
-            var c4 = LoadColorTiles(4);
-            var c5 = LoadColorTiles(5);
-
-            // ---- Fondo de agua (con margen alrededor del mapa) ----
-            const int margin = 14;
-            var waterMap = NewLayer(gridGo, "WaterBG", -100);
-            var waterBounds = new BoundsInt(-margin, -margin, 0, W + margin * 2, H + margin * 2, 1);
-            var waterTiles = new TileBase[waterBounds.size.x * waterBounds.size.y];
-            for (int i = 0; i < waterTiles.Length; i++) waterTiles[i] = waterBgTile;
-            waterMap.SetTilesBlock(waterBounds, waterTiles);
-
-            var mapBounds = new BoundsInt(0, 0, 0, W, H, 1);
-
-            // ---- Espuma ----
-            var foamMap = NewLayer(gridGo, "Foam", -96);
-            PaintFromMask(foamMap, mapBounds, (x, y) => map.foam[x, y] ? foamTile : null);
-
-            // ---- Suelo llano base (color 1) ----
-            var groundMap = NewLayer(gridGo, "Ground", -92);
-            PaintFromMask(groundMap, mapBounds, (x, y) =>
-                map.land[x, y] ? c1[FlatByMask[MaskOf(map.land, x, y)]] : null);
-
-            // ---- Parches de bioma (colores 3, 4, 5) ----
-            var detailMap = NewLayer(gridGo, "GroundDetail", -88);
-            var patchSets = new Dictionary<int, TileBase[]> { [3] = c3, [4] = c4, [5] = c5 };
-            foreach (var kv in patchSets)
-            {
-                int colorIdx = kv.Key;
-                var mask = new bool[W, H];
-                for (int x = 0; x < W; x++)
-                    for (int y = 0; y < H; y++)
-                        mask[x, y] = map.detailPatch[x, y] == colorIdx;
-                PaintFromMask(detailMap, mapBounds, (x, y) =>
-                    mask[x, y] ? kv.Value[FlatByMask[MaskOf(mask, x, y)]] : null, clearFirst: false);
-            }
-
-            // ---- Nivel elevado 1 (color 2) + sombra ----
-            var shadow1 = NewLayer(gridGo, "Shadow1", -84);
-            PaintFromMask(shadow1, mapBounds, (x, y) =>
-                map.InBounds(x, y + 1) && map.elev1[x, y + 1] ? shadowTile : null);
-
-            var elev1Map = NewLayer(gridGo, "Elevated1", -80);
-            PaintElevated(elev1Map, mapBounds, map, map.elev1, map.cliff1, map.stairTiles1, c2,
-                cliffOverWaterAllowed: true);
-
-            // ---- Nivel elevado 2 (color 3) + sombra ----
-            var shadow2 = NewLayer(gridGo, "Shadow2", -76);
-            PaintFromMask(shadow2, mapBounds, (x, y) =>
-                map.InBounds(x, y + 1) && map.elev2[x, y + 1] ? shadowTile : null);
-
-            var elev2Map = NewLayer(gridGo, "Elevated2", -72);
-            PaintElevated(elev2Map, mapBounds, map, map.elev2, map.cliff2, map.stairTiles2, c3,
-                cliffOverWaterAllowed: false);
-
-            // ---- Colision ----
-            BuildCollision(gridGo, map, waterBgTile);
+            public string idlePngPath;
+            public bool ranged;
+            public bool monk;
+            public float maxHealth = 150f;
+            public float spriteYOffset = 0.62f;
+            public float sweepRange = 1.8f;
+            public float sweepKnockback = 5f;
+            public float sweepDamage = 20f;
+            public float stabRange = 3.0f;
+            public float stabDamage = 30f;
+            public float attackDuration = 0.4f;
+            public float hitDelay = 0.18f;
+            public float attackRecovery = 0.1f;
         }
 
-        static Tilemap NewLayer(GameObject grid, string name, int sortingOrder)
+        static UnitTuning WarriorPlayerTuning() => new UnitTuning();
+
+        static UnitTuning LancerPlayerTuning() => new UnitTuning
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(grid.transform, false);
-            var tilemap = go.AddComponent<Tilemap>();
-            var renderer = go.AddComponent<TilemapRenderer>();
-            renderer.sortingOrder = sortingOrder;
-            return tilemap;
-        }
+            idlePngPath = TS + "Units/Blue Units/Lancer/Lancer_Idle.png",
+            maxHealth = 112f,
+            spriteYOffset = 0.68f,
+            sweepRange = 2.5f,
+            sweepDamage = 25f,
+            stabRange = 3.8f,
+            stabDamage = 36f,
+            attackDuration = 0.55f,
+            hitDelay = 0.24f,
+            attackRecovery = 0.325f,
+        };
 
-        static int MaskOf(bool[,] mask, int x, int y)
+        static UnitTuning ArcherPlayerTuning() => new UnitTuning
         {
-            int m = 0;
-            if (GetMask(mask, x, y + 1)) m |= 1; // N
-            if (GetMask(mask, x, y - 1)) m |= 2; // S
-            if (GetMask(mask, x + 1, y)) m |= 4; // E
-            if (GetMask(mask, x - 1, y)) m |= 8; // W
-            return m;
-        }
+            idlePngPath = TS + "Units/Blue Units/Archer/Archer_Idle.png",
+            ranged = true,
+            maxHealth = 75f,
+            attackDuration = 0.55f,
+            attackRecovery = 0.325f,
+        };
 
-        static bool GetMask(bool[,] mask, int x, int y)
+        static UnitTuning MonkPlayerTuning() => new UnitTuning
         {
-            return x >= 0 && x < MapData.W && y >= 0 && y < MapData.H && mask[x, y];
-        }
+            idlePngPath = TS + "Units/Blue Units/Monk/Idle.png",
+            monk = true,
+            maxHealth = 125f,
+            sweepRange = 1.4f,
+            sweepDamage = 20f,
+            sweepKnockback = 12f,
+            attackDuration = 0.35f,
+            hitDelay = 0.14f,
+            attackRecovery = 0.1f,
+        };
 
-        static void PaintFromMask(Tilemap tilemap, BoundsInt bounds, Func<int, int, TileBase> pick,
-            bool clearFirst = true)
+        // Enemigos: mismas identidades con menos vida que el jugador.
+        static UnitTuning EnemyLancerTuning() => new UnitTuning
         {
-            var tiles = new TileBase[bounds.size.x * bounds.size.y];
-            bool any = false;
-            for (int y = 0; y < bounds.size.y; y++)
-                for (int x = 0; x < bounds.size.x; x++)
-                {
-                    var t = pick(bounds.x + x, bounds.y + y);
-                    if (t != null) { tiles[y * bounds.size.x + x] = t; any = true; }
-                }
-            if (!any) return;
-            if (clearFirst)
-            {
-                tilemap.SetTilesBlock(bounds, tiles);
-            }
-            else
-            {
-                // Pintar sin borrar lo ya existente en la capa.
-                for (int y = 0; y < bounds.size.y; y++)
-                    for (int x = 0; x < bounds.size.x; x++)
-                    {
-                        var t = tiles[y * bounds.size.x + x];
-                        if (t != null) tilemap.SetTile(new Vector3Int(bounds.x + x, bounds.y + y, 0), t);
-                    }
-            }
-        }
+            idlePngPath = TS + "Units/Red Units/Lancer/Lancer_Idle.png",
+            maxHealth = 75f,
+            spriteYOffset = 0.68f,
+            sweepRange = 2.5f,
+            sweepDamage = 25f,
+            stabRange = 3.8f,
+            stabDamage = 36f,
+            attackDuration = 0.55f,
+            hitDelay = 0.24f,
+            attackRecovery = 0.325f,
+        };
 
-        static void PaintElevated(Tilemap tilemap, BoundsInt bounds, MapData map,
-            bool[,] elev, bool[,] cliff, Dictionary<Vector2Int, int> stairs, TileBase[] tiles,
-            bool cliffOverWaterAllowed)
+        static UnitTuning EnemyArcherTuning() => new UnitTuning
         {
-            PaintFromMask(tilemap, bounds, (x, y) =>
-            {
-                var cell = new Vector2Int(x, y);
-                if (stairs.TryGetValue(cell, out int stairIdx)) return tiles[stairIdx];
+            idlePngPath = TS + "Units/Red Units/Archer/Archer_Idle.png",
+            ranged = true,
+            maxHealth = 55f,
+            attackDuration = 0.55f,
+            attackRecovery = 0.325f,
+        };
 
-                if (elev[x, y]) return tiles[ElevByMask[MaskOf(elev, x, y)]];
-
-                if (cliff[x, y])
-                {
-                    bool left = GetMask(cliff, x - 1, y);
-                    bool right = GetMask(cliff, x + 1, y);
-                    int piece = left && right ? 35 : (!left && right ? 34 : (left ? 36 : 37));
-                    bool overWater = cliffOverWaterAllowed && !map.land[x, y];
-                    if (overWater) piece += 6; // fila de acantilado que toca el agua
-                    return tiles[piece];
-                }
-                return null;
-            });
-        }
-
-        static void BuildCollision(GameObject grid, MapData map, TileBase _)
+        static UnitTuning EnemyMonkTuning() => new UnitTuning
         {
-            // Tile invisible de colision (caja de celda completa).
-            string tilePath = OutDir + "/Tiles/CollisionTile.asset";
-            AssetDatabase.DeleteAsset(tilePath);
-            var collisionTile = ScriptableObject.CreateInstance<Tile>();
-            collisionTile.name = "CollisionTile";
-            collisionTile.colliderType = Tile.ColliderType.Grid;
-            AssetDatabase.CreateAsset(collisionTile, tilePath);
-
-            // Solo bloqueamos celdas no transitables cercanas a la zona jugable.
-            int W = MapData.W, H = MapData.H;
-            var near = new bool[W, H];
-            for (int x = 0; x < W; x++)
-                for (int y = 0; y < H; y++)
-                {
-                    if (!map.walkable[x, y]) continue;
-                    for (int dx = -3; dx <= 3; dx++)
-                        for (int dy = -3; dy <= 3; dy++)
-                        {
-                            int nx = x + dx, ny = y + dy;
-                            if (nx >= 0 && nx < W && ny >= 0 && ny < H) near[nx, ny] = true;
-                        }
-                }
-
-            var go = new GameObject("Collision");
-            go.transform.SetParent(grid.transform, false);
-            var tilemap = go.AddComponent<Tilemap>();
-            var rb = go.AddComponent<Rigidbody2D>();
-            rb.bodyType = RigidbodyType2D.Static;
-            var tileCollider = go.AddComponent<TilemapCollider2D>();
-            var composite = go.AddComponent<CompositeCollider2D>();
-            tileCollider.compositeOperation = Collider2D.CompositeOperation.Merge;
-            composite.geometryType = CompositeCollider2D.GeometryType.Polygons;
-
-            var bounds = new BoundsInt(0, 0, 0, W, H, 1);
-            PaintFromMask(tilemap, bounds, (x, y) =>
-                (!map.walkable[x, y] && near[x, y]) ? (TileBase)collisionTile : null);
-        }
+            idlePngPath = TS + "Units/Red Units/Monk/Idle.png",
+            monk = true,
+            maxHealth = 85f,
+            sweepRange = 1.4f,
+            sweepDamage = 20f,
+            sweepKnockback = 12f,
+            attackDuration = 0.35f,
+            hitDelay = 0.14f,
+            attackRecovery = 0.1f,
+        };
 
         // =================================================================
-        //  PREFABS DE PERSONAJES
+        //  PREFABS
         // =================================================================
 
         static GameObject BuildCharacterPrefab(string name, RuntimeAnimatorController controller,
@@ -629,7 +436,6 @@ namespace TinyRpg.EditorTools
                     combat.attackRecovery = tuning.attackRecovery;
                 }
 
-                // Sprite animado (los pies del personaje quedan en el origen del root).
                 var spriteGo = new GameObject("Sprite");
                 spriteGo.transform.SetParent(root.transform, false);
                 spriteGo.transform.localPosition = new Vector3(0f, tuning?.spriteYOffset ?? 0.62f, 0f);
@@ -649,6 +455,7 @@ namespace TinyRpg.EditorTools
 
                 if (isPlayer)
                 {
+                    root.AddComponent<CharacterAttributes>();
                     root.AddComponent<Inventory>();
                     root.AddComponent<PlayerController>();
                 }
@@ -676,9 +483,6 @@ namespace TinyRpg.EditorTools
             barsGo.transform.SetParent(root.transform, false);
             var bars = barsGo.AddComponent<WorldStatusBars>();
 
-            // Ranura medida en SmallBar_Base.png: X 55-136, Y 27-35 (de 192x64).
-            // La franja de SmallBar_Fill es de 3 px a ancho completo: escala 3 en Y
-            // para llenar la ranura de 9 px.
             bars.healthFillAnchor = BuildOneBar(barsGo.transform, "Health", baseSprite, fillSprite,
                 new Vector3(0f, 1.52f, 0f), new Vector3(0.8f, 0.8f, 1f), Color.white, 30000,
                 new Vector2(1.28125f, 3f));
@@ -698,7 +502,6 @@ namespace TinyRpg.EditorTools
             baseSr.sprite = baseSprite;
             baseSr.sortingOrder = sortingOrder;
 
-            // Ancla en el borde izquierdo de la ranura; su escala X es la fraccion.
             var anchor = new GameObject(name + "FillAnchor");
             anchor.transform.SetParent(baseGo.transform, false);
             anchor.transform.localPosition = new Vector3(-0.6406f, 0f, 0f);
@@ -713,95 +516,6 @@ namespace TinyRpg.EditorTools
             fillSr.sortingOrder = sortingOrder + 1;
 
             return anchor.transform;
-        }
-
-        /// NPC vendedor: Blue Pawn con burbuja de oferta ([pocion] 1 [moneda] + hint E).
-        static void BuildVendor(Vector2 position, Transform parent)
-        {
-            var idleSprite = LoadFirstSprite(TS + "Pawn and Resources/Pawn/Blue Pawn/Pawn_Idle.png");
-
-            var root = new GameObject("Vendor_BluePawn");
-            root.transform.SetParent(parent, false);
-            root.transform.position = position;
-
-            var col = root.AddComponent<CircleCollider2D>();
-            col.radius = 0.28f;
-            col.offset = new Vector2(0f, 0.3f);
-
-            var spriteGo = new GameObject("Sprite");
-            spriteGo.transform.SetParent(root.transform, false);
-            spriteGo.transform.localPosition = new Vector3(0f, 0.62f, 0f);
-            var sr = spriteGo.AddComponent<SpriteRenderer>();
-            sr.sprite = idleSprite;
-            var animator = spriteGo.AddComponent<Animator>();
-            animator.runtimeAnimatorController = pawnController;
-
-            var sorter = root.AddComponent<YSorter>();
-            sorter.renderers = new[] { sr };
-            sorter.isStatic = true;
-
-            // --- Burbuja de oferta ---
-            int order = 31000;
-            var bubble = new GameObject("Bubble");
-            bubble.transform.SetParent(root.transform, false);
-            bubble.transform.localPosition = new Vector3(0f, 1.8f, 0f);
-
-            var bg = new GameObject("Background");
-            bg.transform.SetParent(bubble.transform, false);
-            bg.transform.localScale = new Vector3(13.5f, 5.8f, 1f); // sprite blanco de 8px -> ~1.7 x 0.72 u
-            var bgSr = bg.AddComponent<SpriteRenderer>();
-            bgSr.sprite = GetWhiteSprite();
-            bgSr.color = new Color(0.16f, 0.12f, 0.09f, 0.88f);
-            bgSr.sortingOrder = order;
-
-            var potionGo = new GameObject("PotionIcon");
-            potionGo.transform.SetParent(bubble.transform, false);
-            potionGo.transform.localPosition = new Vector3(-0.5f, 0.02f, 0f);
-            potionGo.transform.localScale = new Vector3(0.55f, 0.55f, 1f);
-            var potionSr = potionGo.AddComponent<SpriteRenderer>();
-            potionSr.sprite = potionIconSprite;
-            potionSr.sortingOrder = order + 2;
-
-            var priceText = MakeWorldText(bubble.transform, "1", new Vector3(0.08f, 0f, 0f),
-                0.058f, order + 2, Color.white);
-
-            var coinGo = new GameObject("CoinIcon");
-            coinGo.transform.SetParent(bubble.transform, false);
-            coinGo.transform.localPosition = new Vector3(0.48f, 0.02f, 0f);
-            coinGo.transform.localScale = new Vector3(0.42f, 0.42f, 1f);
-            var coinSr = coinGo.AddComponent<SpriteRenderer>();
-            coinSr.sprite = coinIconSprite;
-            coinSr.sortingOrder = order + 2;
-
-            MakeWorldText(bubble.transform, "[E] comprar", new Vector3(0f, -0.55f, 0f),
-                0.042f, order + 2, new Color(1f, 0.95f, 0.75f, 1f));
-
-            var vendor = root.AddComponent<VendorNpc>();
-            vendor.itemSold = ItemType.HealthPotion;
-            vendor.priceInCoins = 1;
-            vendor.bubble = bubble;
-            vendor.coinIconRenderer = coinSr;
-            vendor.spriteRenderer = sr;
-        }
-
-        static TextMesh MakeWorldText(Transform parent, string content, Vector3 localPos,
-            float characterSize, int sortingOrder, Color color)
-        {
-            var go = new GameObject("Text");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPos;
-            var tm = go.AddComponent<TextMesh>();
-            tm.text = content;
-            tm.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            tm.fontSize = 64;
-            tm.characterSize = characterSize;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.color = color;
-            var mr = go.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = tm.font.material;
-            mr.sortingOrder = sortingOrder;
-            return tm;
         }
 
         static GameObject BuildSheepPrefab(RuntimeAnimatorController controller)
@@ -830,8 +544,37 @@ namespace TinyRpg.EditorTools
                 var sorter = root.AddComponent<YSorter>();
                 sorter.renderers = new[] { sr };
 
-                var prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{OutDir}/Prefabs/Sheep.prefab");
-                return prefab;
+                return PrefabUtility.SaveAsPrefabAsset(root, $"{OutDir}/Prefabs/Sheep.prefab");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        static GameObject BuildPawnNpcPrefab(RuntimeAnimatorController controller)
+        {
+            var sprite = LoadFirstSprite(TS + "Pawn and Resources/Pawn/Blue Pawn/Pawn_Idle.png");
+            var root = new GameObject("PawnNpc");
+            try
+            {
+                var col = root.AddComponent<CircleCollider2D>();
+                col.radius = 0.26f;
+                col.offset = new Vector2(0f, 0.3f);
+                root.AddComponent<TownNpc>();
+
+                var spriteGo = new GameObject("Sprite");
+                spriteGo.transform.SetParent(root.transform, false);
+                spriteGo.transform.localPosition = new Vector3(0f, 0.62f, 0f);
+                var sr = spriteGo.AddComponent<SpriteRenderer>();
+                sr.sprite = sprite;
+                var animator = spriteGo.AddComponent<Animator>();
+                animator.runtimeAnimatorController = controller;
+
+                var sorter = root.AddComponent<YSorter>();
+                sorter.renderers = new[] { sr };
+
+                return PrefabUtility.SaveAsPrefabAsset(root, $"{OutDir}/Prefabs/PawnNpc.prefab");
             }
             finally
             {
@@ -840,304 +583,131 @@ namespace TinyRpg.EditorTools
         }
 
         // =================================================================
-        //  POBLAR EL MUNDO
+        //  ESCENA: TILEMAPS VACIOS, LIBRERIA, CAMARA
         // =================================================================
 
-        class WorldRefs
+        static Tilemap[] BuildEmptyTilemaps()
         {
-            public Vector2 spawnPosition;
-        }
+            var gridGo = new GameObject("World");
+            gridGo.AddComponent<Grid>();
 
-        static WorldRefs PopulateWorld(MapData map,
-            Dictionary<string, GameObject> enemyPrefabs, GameObject sheepPrefab)
-        {
-            var refs = new WorldRefs();
-            var decorParent = new GameObject("Decor").transform;
-            var unitsParent = new GameObject("Units").transform;
-
-            var occupied = new HashSet<Vector2Int>();
-            foreach (var cell in map.stairWalkable)
-                for (int dx = -1; dx <= 1; dx++)
-                    for (int dy = -2; dy <= 2; dy++)
-                        occupied.Add(new Vector2Int(cell.x + dx, cell.y + dy));
-
-            // ---------- Aldea del jugador ----------
-            var spawnCell = map.FindWalkableNear(PlayerSpawnHint.x, PlayerSpawnHint.y);
-            Vector2 spawn = CellCenter(spawnCell);
-            MarkArea(occupied, spawnCell, 3);
-
-            // Aserto de regresion: ninguna celda transitable puede quedar aislada.
-            MapGenerator.ValidateConnectivity(map, spawnCell);
-
-            // Solo se puede spawnear unidades en celdas alcanzables desde el jugador,
-            // para que la victoria (matar a todos) sea siempre posible.
-            var reachable = map.ComputeReachable(spawnCell);
-
-            PlaceBuilding(map, occupied, decorParent, TS + "Buildings/Blue Buildings/Castle.png",
-                spawnCell + new Vector2Int(0, 4), 3, 2);
-            PlaceBuilding(map, occupied, decorParent, TS + "Buildings/Blue Buildings/House1.png",
-                spawnCell + new Vector2Int(-6, 2), 2, 1);
-            PlaceBuilding(map, occupied, decorParent, TS + "Buildings/Blue Buildings/House2.png",
-                spawnCell + new Vector2Int(6, 3), 2, 1);
-
-            // El jugador ya no se instancia aqui: lo crea ClassSelectScreen al
-            // elegir clase. Solo guardamos el punto de aparicion.
-            refs.spawnPosition = spawn;
-
-            // Vendedor neutral (Blue Pawn) frente al castillo.
-            BuildVendor(CellCenter(spawnCell + new Vector2Int(1, 2)), unitsParent);
-            MarkArea(occupied, spawnCell + new Vector2Int(1, 2), 1);
-
-            foreach (var offset in new[] { new Vector2Int(-3, -2), new Vector2Int(2, -3),
-                new Vector2Int(5, 0), new Vector2Int(-2, 2) })
+            Tilemap NewLayer(string name, int order, bool withRenderer = true)
             {
-                if (map.TryFindReachableNear(reachable, spawnCell.x + offset.x, spawnCell.y + offset.y, 4,
-                    out var cell))
-                    Spawn(sheepPrefab, CellCenter(cell), unitsParent);
-            }
-
-            // ---------- Campamentos enemigos ----------
-            PlaceCamp(map, reachable, occupied, decorParent, unitsParent, enemyPrefabs,
-                towerPath: TS + "Buildings/Red Buildings/Tower.png", towerCell: new Vector2Int(52, 48),
-                color: "Red", spots: new[] { new Vector2Int(48, 45), new Vector2Int(56, 46), new Vector2Int(51, 44), new Vector2Int(55, 49) });
-
-            PlaceCamp(map, reachable, occupied, decorParent, unitsParent, enemyPrefabs,
-                towerPath: TS + "Buildings/Purple Buildings/Tower.png", towerCell: new Vector2Int(22, 32),
-                color: "Purple", spots: new[] { new Vector2Int(19, 29), new Vector2Int(25, 30), new Vector2Int(22, 28) });
-
-            PlaceCamp(map, reachable, occupied, decorParent, unitsParent, enemyPrefabs,
-                towerPath: TS + "Buildings/Yellow Buildings/Tower.png", towerCell: new Vector2Int(86, 55),
-                color: "Yellow", spots: new[] { new Vector2Int(83, 52), new Vector2Int(88, 53), new Vector2Int(86, 51) });
-
-            PlaceCamp(map, reachable, occupied, decorParent, unitsParent, enemyPrefabs,
-                towerPath: TS + "Buildings/Red Buildings/Barracks.png", towerCell: new Vector2Int(66, 16),
-                color: "Red", spots: new[] { new Vector2Int(63, 13), new Vector2Int(69, 14) });
-
-            // Merodeadores sueltos entre la aldea y los campamentos.
-            foreach (var cell in new[] { new Vector2Int(34, 28), new Vector2Int(58, 30) })
-            {
-                if (!map.TryFindReachableNear(reachable, cell.x, cell.y, 12, out var c))
+                var go = new GameObject(name);
+                go.transform.SetParent(gridGo.transform, false);
+                var tilemap = go.AddComponent<Tilemap>();
+                if (withRenderer)
                 {
-                    Debug.LogWarning($"[SceneBuilder] Merodeador en {cell} sin celda alcanzable; omitido.");
-                    continue;
+                    var renderer = go.AddComponent<TilemapRenderer>();
+                    renderer.sortingOrder = order;
                 }
-                Spawn(enemyPrefabs["Red"], CellCenter(c), unitsParent);
-                MarkArea(occupied, c, 1);
+                return tilemap;
             }
 
-            // ---------- Decoracion dispersa ----------
-            ScatterDecor(map, occupied, decorParent, spawnCell);
-            PlaceWaterExtras(map, decorParent);
-            PlaceClouds(decorParent);
+            var water = NewLayer("WaterBG", -100);
+            var foam = NewLayer("Foam", -96);
+            var ground = NewLayer("Ground", -92);
+            var detail = NewLayer("GroundDetail", -88);
 
-            return refs;
+            var collision = NewLayer("Collision", 0, withRenderer: false);
+            var rb = collision.gameObject.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Static;
+            var tileCollider = collision.gameObject.AddComponent<TilemapCollider2D>();
+            var composite = collision.gameObject.AddComponent<CompositeCollider2D>();
+            tileCollider.compositeOperation = Collider2D.CompositeOperation.Merge;
+            composite.geometryType = CompositeCollider2D.GeometryType.Polygons;
+
+            return new[] { water, foam, ground, detail, collision };
         }
 
-        static void PlaceCamp(MapData map, bool[,] reachable, HashSet<Vector2Int> occupied,
-            Transform decorParent, Transform unitsParent, Dictionary<string, GameObject> enemyPrefabs,
-            string towerPath, Vector2Int towerCell, string color, Vector2Int[] spots)
+        static void BuildMapLibrary(Tilemap[] layers, GameObject[] enemyPrefabs,
+            GameObject sheepPrefab, GameObject pawnPrefab)
         {
-            var tc = map.FindWalkableNear(towerCell.x, towerCell.y);
-            PlaceBuilding(map, occupied, decorParent, towerPath, tc, 1, 1);
-            foreach (var s in spots)
+            // Tile invisible de colision.
+            string tilePath = OutDir + "/Tiles/CollisionTile.asset";
+            AssetDatabase.DeleteAsset(tilePath);
+            var collisionTile = ScriptableObject.CreateInstance<Tile>();
+            collisionTile.name = "CollisionTile";
+            collisionTile.colliderType = Tile.ColliderType.Grid;
+            AssetDatabase.CreateAsset(collisionTile, tilePath);
+
+            var go = new GameObject("MapLibrary");
+            var lib = go.AddComponent<MapLibrary>();
+
+            lib.waterLayer = layers[0];
+            lib.foamLayer = layers[1];
+            lib.groundLayer = layers[2];
+            lib.detailLayer = layers[3];
+            lib.collisionLayer = layers[4];
+
+            lib.color1 = LoadColorTiles(1);
+            lib.color2 = LoadColorTiles(2);
+            lib.color3 = LoadColorTiles(3);
+            lib.color4 = LoadColorTiles(4);
+            lib.color5 = LoadColorTiles(5);
+            lib.waterBgTile = LoadTile(TileSettingsDir + "Water Background color.asset");
+            lib.foamTile = LoadTile(TileSettingsDir + "Water Tile animated.asset");
+            lib.collisionTile = collisionTile;
+
+            lib.treeSprites = new[]
             {
-                if (!map.TryFindReachableNear(reachable, s.x, s.y, 10, out var cell))
-                {
-                    Debug.LogWarning($"[SceneBuilder] Enemigo {color} en {s} sin celda alcanzable; omitido.");
-                    continue;
-                }
-                if (occupied.Contains(cell))
-                    map.TryFindReachableNear(reachable, s.x + 1, s.y + 1, 10, out cell);
-                Spawn(enemyPrefabs[color], CellCenter(cell), unitsParent);
-                occupied.Add(cell);
-            }
-        }
-
-        static void ScatterDecor(MapData map, HashSet<Vector2Int> occupied, Transform parent,
-            Vector2Int playerSpawn)
-        {
-            string[] trees = { "Tree1.png", "Tree2.png", "Tree3.png", "Tree4.png" };
-            string[] stumps = { "Stump 1.png", "Stump 2.png", "Stump 3.png", "Stump 4.png" };
-            string[] bushes = { "Bush 1.png", "Bush 2.png", "Bush 3.png", "Bush 4.png" };
-            string[] rocks = { "Rock1.png", "Rock2.png", "Rock3.png", "Rock4.png" };
-
-            // Arboles: repartidos con ruido de densidad, lejos de la aldea.
-            ScatterKind(map, occupied, parent, 52, minSpawnDist: 8, playerSpawn,
-                i => TS + "Pawn and Resources/Wood/Trees/" + trees[i % trees.Length],
-                feetInset: 0.45f, colliderRadius: 0.35f);
-
-            ScatterKind(map, occupied, parent, 9, minSpawnDist: 6, playerSpawn,
-                i => TS + "Pawn and Resources/Wood/Trees/" + stumps[i % stumps.Length],
-                feetInset: 0.12f, colliderRadius: 0.22f);
-
-            ScatterKind(map, occupied, parent, 22, minSpawnDist: 4, playerSpawn,
-                i => TS + "Terrain/Decorations/Bushes/" + bushes[i % bushes.Length],
-                feetInset: 0.12f, colliderRadius: 0f);
-
-            ScatterKind(map, occupied, parent, 12, minSpawnDist: 5, playerSpawn,
-                i => TS + "Terrain/Decorations/Rocks/" + rocks[i % rocks.Length],
-                feetInset: 0.1f, colliderRadius: 0.25f);
-
-            // Vetas de oro agrupadas en el humedal del este.
-            for (int i = 0; i < 8; i++)
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Tree1.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Tree2.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Tree3.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Tree4.png"),
+            };
+            lib.bushSprites = new[]
             {
-                int x = 74 + rng.Next(-6, 9);
-                int y = 33 + rng.Next(-5, 6);
-                var cell = map.FindWalkableNear(x, y, 5);
-                if (occupied.Contains(cell)) continue;
-                occupied.Add(cell);
-                string path = TS + $"Pawn and Resources/Gold/Gold Stones/Gold Stone {1 + (i % 6)}.png";
-                CreateDecorSprite(path, CellCenter(cell), parent, 0.1f, 0.28f);
-            }
-        }
-
-        static void ScatterKind(MapData map, HashSet<Vector2Int> occupied, Transform parent,
-            int count, int minSpawnDist, Vector2Int playerSpawn,
-            Func<int, string> pathFor, float feetInset, float colliderRadius)
-        {
-            int placed = 0;
-            for (int attempt = 0; attempt < count * 30 && placed < count; attempt++)
+                LoadFirstSprite(TS + "Terrain/Decorations/Bushes/Bush 1.png"),
+                LoadFirstSprite(TS + "Terrain/Decorations/Bushes/Bush 2.png"),
+                LoadFirstSprite(TS + "Terrain/Decorations/Bushes/Bush 3.png"),
+                LoadFirstSprite(TS + "Terrain/Decorations/Bushes/Bush 4.png"),
+            };
+            lib.rockSprites = new[]
             {
-                int x = rng.Next(2, MapData.W - 2);
-                int y = rng.Next(2, MapData.H - 2);
-                var cell = new Vector2Int(x, y);
-                if (!map.Walkable(x, y) || occupied.Contains(cell)) continue;
-                if (Vector2Int.Distance(cell, playerSpawn) < minSpawnDist) continue;
-                // Ruido de densidad para que se agrupen de forma organica.
-                if (Mathf.PerlinNoise(x * 0.15f + 7.3f, y * 0.15f + 2.9f) < 0.42f) continue;
-
-                occupied.Add(cell);
-                Vector2 pos = CellCenter(cell) + new Vector2(
-                    (float)(rng.NextDouble() - 0.5) * 0.5f, (float)(rng.NextDouble() - 0.5) * 0.4f);
-                CreateDecorSprite(pathFor(placed), pos, parent, feetInset, colliderRadius);
-                placed++;
-            }
-        }
-
-        static void PlaceWaterExtras(MapData map, Transform parent)
-        {
-            string[] waterRocks = { "Water Rocks_01.png", "Water Rocks_02.png", "Water Rocks_03.png", "Water Rocks_04.png" };
-            int placed = 0;
-            for (int attempt = 0; attempt < 300 && placed < 10; attempt++)
+                LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock1.png"),
+                LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock2.png"),
+                LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock3.png"),
+                LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock4.png"),
+            };
+            lib.stumpSprites = new[]
             {
-                int x = rng.Next(3, MapData.W - 3);
-                int y = rng.Next(3, MapData.H - 3);
-                bool nearLand = false;
-                for (int dx = -2; dx <= 2 && !nearLand; dx++)
-                    for (int dy = -2; dy <= 2; dy++)
-                        if (map.Land(x + dx, y + dy)) { nearLand = true; break; }
-                if (map.land[x, y] || nearLand) continue;
-
-                var sprite = LoadFirstSprite(TS + "Terrain/Decorations/Rocks in the Water/" + waterRocks[placed % waterRocks.Length]);
-                var go = new GameObject("WaterRock");
-                go.transform.SetParent(parent, false);
-                go.transform.position = CellCenter(new Vector2Int(x, y));
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = sprite;
-                sr.sortingOrder = -94;
-                placed++;
-
-                if (placed == 5)
-                {
-                    var duck = new GameObject("RubberDuck");
-                    duck.transform.SetParent(parent, false);
-                    duck.transform.position = CellCenter(new Vector2Int(x, y)) + new Vector2(1.2f, 0.6f);
-                    var duckSr = duck.AddComponent<SpriteRenderer>();
-                    duckSr.sprite = LoadFirstSprite(TS + "Terrain/Decorations/Rubber Duck/Rubber duck.png");
-                    duckSr.sortingOrder = -93;
-                }
-            }
-        }
-
-        static void PlaceClouds(Transform parent)
-        {
-            for (int i = 0; i < 6; i++)
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Stump 1.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Stump 2.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Stump 3.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Wood/Trees/Stump 4.png"),
+            };
+            lib.goldSprites = new[]
             {
-                string path = TS + $"Terrain/Decorations/Clouds/Clouds_0{1 + (i % 8)}.png";
-                var go = new GameObject("Cloud" + i);
-                go.transform.SetParent(parent, false);
-                go.transform.position = new Vector3(rng.Next(0, MapData.W), 8 + i * 9 + rng.Next(0, 5), 0f);
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = LoadFirstSprite(path);
-                sr.color = new Color(1f, 1f, 1f, 0.8f);
-                // Ojo: sortingOrder se almacena como Int16; valores altos se desbordan.
-                sr.sortingOrder = 32000;
-                var drift = go.AddComponent<CloudDrift>();
-                drift.speed = 0.25f + (float)rng.NextDouble() * 0.5f;
-            }
+                LoadFirstSprite(TS + "Pawn and Resources/Gold/Gold Stones/Gold Stone 1.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Gold/Gold Stones/Gold Stone 2.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Gold/Gold Stones/Gold Stone 3.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Gold/Gold Stones/Gold Stone 4.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Gold/Gold Stones/Gold Stone 5.png"),
+                LoadFirstSprite(TS + "Pawn and Resources/Gold/Gold Stones/Gold Stone 6.png"),
+            };
+            lib.houseSprite = LoadFirstSprite(TS + "Buildings/Blue Buildings/House1.png");
+            lib.house2Sprite = LoadFirstSprite(TS + "Buildings/Blue Buildings/House2.png");
+            lib.towerSprite = LoadFirstSprite(TS + "Buildings/Blue Buildings/Tower.png");
+            lib.woodTableSprite = LoadFirstSprite(TS + "UI Elements/Wood Table/WoodTable.png");
+            lib.fireSprite = LoadFirstSprite(TS + "Particle FX/Fire_01.png");
+            lib.fireController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                TS + "Particle FX/Fire 1 Animation/Fire 1.controller");
+
+            lib.enemyPrefabs = enemyPrefabs;
+            lib.sheepPrefab = sheepPrefab;
+            lib.pawnNpcPrefab = pawnPrefab;
+
+            lib.coinHudIcon = LoadFirstSprite(TS + "UI Elements/Icons/Icon_03.png");
+            lib.potionSmallIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Small_Red.png");
+            lib.potionMediumIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Red.png");
+            lib.potionLargeIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Large_Red.png");
+            lib.elixirStrengthIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Orange.png");
+            lib.elixirDefenseIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Blue.png");
+            lib.elixirSpeedIcon = LoadIcon("Assets/Tiny Fantasy Icons/Potions/Potion_Medium_Green.png");
         }
 
-        static void PlaceBuilding(MapData map, HashSet<Vector2Int> occupied, Transform parent,
-            string spritePath, Vector2Int cell, int halfWidth, int clearRadiusY)
-        {
-            var feet = map.FindWalkableNear(cell.x, cell.y);
-            var go = CreateDecorSprite(spritePath, CellCenter(feet), parent, 0.15f, 0f);
-            if (go == null) return;
-
-            var sr = go.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null && sr.sprite != null)
-            {
-                var box = go.AddComponent<BoxCollider2D>();
-                float w = sr.sprite.bounds.size.x;
-                box.size = new Vector2(Mathf.Max(1f, w * 0.6f), 1.3f);
-                box.offset = new Vector2(0f, 0.65f);
-            }
-            for (int dx = -halfWidth - 1; dx <= halfWidth + 1; dx++)
-                for (int dy = -clearRadiusY; dy <= clearRadiusY + 2; dy++)
-                    occupied.Add(new Vector2Int(feet.x + dx, feet.y + dy));
-        }
-
-        static GameObject CreateDecorSprite(string spritePath, Vector2 feetPos, Transform parent,
-            float feetInset, float colliderRadius)
-        {
-            var sprite = LoadFirstSprite(spritePath);
-            if (sprite == null) return null;
-
-            var root = new GameObject(System.IO.Path.GetFileNameWithoutExtension(spritePath));
-            root.transform.SetParent(parent, false);
-            root.transform.position = feetPos;
-
-            var spriteGo = new GameObject("Sprite");
-            spriteGo.transform.SetParent(root.transform, false);
-            spriteGo.transform.localPosition = new Vector3(0f, sprite.bounds.extents.y - feetInset, 0f);
-            var sr = spriteGo.AddComponent<SpriteRenderer>();
-            sr.sprite = sprite;
-
-            var sorter = root.AddComponent<YSorter>();
-            sorter.renderers = new[] { sr };
-            sorter.isStatic = true;
-
-            if (colliderRadius > 0f)
-            {
-                var col = root.AddComponent<CircleCollider2D>();
-                col.radius = colliderRadius;
-                col.offset = new Vector2(0f, colliderRadius * 0.5f);
-            }
-            return root;
-        }
-
-        static GameObject Spawn(GameObject prefab, Vector2 position, Transform parent)
-        {
-            var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            go.transform.SetParent(parent, false);
-            go.transform.position = position;
-            return go;
-        }
-
-        static Vector2 CellCenter(Vector2Int cell) => new Vector2(cell.x + 0.5f, cell.y + 0.5f);
-
-        static void MarkArea(HashSet<Vector2Int> occupied, Vector2Int center, int radius)
-        {
-            for (int dx = -radius; dx <= radius; dx++)
-                for (int dy = -radius; dy <= radius; dy++)
-                    occupied.Add(new Vector2Int(center.x + dx, center.y + dy));
-        }
-
-        // =================================================================
-        //  CAMARA, LUZ, HUD Y GESTORES
-        // =================================================================
-
-        static SmoothCameraFollow BuildCameraAndLight(Vector2 spawnPosition)
+        static SmoothCameraFollow BuildCameraAndLight()
         {
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
@@ -1149,10 +719,10 @@ namespace TinyRpg.EditorTools
             camGo.AddComponent<AudioListener>();
 
             var follow = camGo.AddComponent<SmoothCameraFollow>();
-            follow.target = null; // se asigna al elegir clase
-            follow.boundsMin = new Vector2(0f, 0f);
-            follow.boundsMax = new Vector2(MapData.W, MapData.H);
-            camGo.transform.position = new Vector3(spawnPosition.x, spawnPosition.y, -10f);
+            follow.target = null;
+            follow.boundsMin = Vector2.zero;
+            follow.boundsMax = new Vector2(36f, 24f);
+            camGo.transform.position = new Vector3(18f, 12f, -10f);
 
             var lightGo = new GameObject("Global Light 2D");
             var light = lightGo.AddComponent<Light2D>();
@@ -1160,13 +730,11 @@ namespace TinyRpg.EditorTools
             light.intensity = 1f;
             light.color = Color.white;
 
-            // Iconos de objetos para el inventario, dropeos y vendedor.
             var itemsGo = new GameObject("ItemLibrary");
             var itemLib = itemsGo.AddComponent<ItemLibrary>();
             itemLib.coinIcon = coinIconSprite;
             itemLib.potionIcon = potionIconSprite;
 
-            // Material para los VFX de los ataques.
             var vfxGo = new GameObject("VfxLibrary");
             var lib = vfxGo.AddComponent<VfxLibrary>();
             lib.vfxMaterial =
@@ -1178,11 +746,13 @@ namespace TinyRpg.EditorTools
             return follow;
         }
 
+        // =================================================================
+        //  HUD Y GESTORES
+        // =================================================================
+
         static void BuildHudAndManagers(GameObject playerWarrior, GameObject playerLancer,
-            GameObject playerArcher, GameObject playerMonk, Vector2 spawnPosition,
-            SmoothCameraFollow cameraFollow)
+            GameObject playerArcher, GameObject playerMonk, SmoothCameraFollow cameraFollow)
         {
-            // EventSystem para que los botones de UI funcionen con el Input System.
             var eventSystemGo = new GameObject("EventSystem");
             eventSystemGo.AddComponent<EventSystem>();
             eventSystemGo.AddComponent<InputSystemUIInputModule>();
@@ -1200,9 +770,6 @@ namespace TinyRpg.EditorTools
             var fillSprite = LoadFirstSprite(TS + "UI Elements/Bars/BigBar_Fill.png");
 
             var hud = canvasGo.AddComponent<PlayerHUD>();
-            // Geometria medida sobre BigBar_Base.png (192x64): marco en X 40-151.
-            // El fill del pack (BigBar_Fill) trae su franja roja en Y 20-43 con padding
-            // transparente, asi que con rect a altura completa la franja cae centrada.
             hud.healthFill = BuildHudBar(canvasGo.transform, "Health", baseSprite, fillSprite,
                 new Vector2(30f, 150f), new Vector2(384f, 128f), Color.white,
                 new Vector2(0.25f, 0f), new Vector2(0.75f, 1f));
@@ -1212,26 +779,35 @@ namespace TinyRpg.EditorTools
 
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            // Texto de controles.
             var controls = MakeText(canvasGo.transform, "Controls", font, 22,
-                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. ataque especial  |  Espacio parry o curar  |  1-4 objetos  |  E comprar");
+                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. especial  |  Espacio parry o curar  |  1-4 objetos  |  E interactuar");
             var controlsRt = controls.rectTransform;
             controlsRt.anchorMin = new Vector2(0.5f, 1f);
             controlsRt.anchorMax = new Vector2(0.5f, 1f);
             controlsRt.pivot = new Vector2(0.5f, 1f);
             controlsRt.anchoredPosition = new Vector2(0f, -16f);
-            controlsRt.sizeDelta = new Vector2(1400f, 40f);
+            controlsRt.sizeDelta = new Vector2(1500f, 40f);
             controls.alignment = TextAnchor.UpperCenter;
             controls.color = new Color(1f, 1f, 1f, 0.85f);
 
-            // Mensaje central (muerte / victoria).
+            // Indicador de nivel (arriba a la derecha).
+            var levelText = MakeText(canvasGo.transform, "LevelLabel", font, 30, "Ciudad");
+            var lrt = levelText.rectTransform;
+            lrt.anchorMin = new Vector2(1f, 1f);
+            lrt.anchorMax = new Vector2(1f, 1f);
+            lrt.pivot = new Vector2(1f, 1f);
+            lrt.anchoredPosition = new Vector2(-24f, -18f);
+            lrt.sizeDelta = new Vector2(400f, 42f);
+            levelText.alignment = TextAnchor.UpperRight;
+            levelText.color = new Color(1f, 0.93f, 0.7f, 1f);
+
             var message = MakeText(canvasGo.transform, "Message", font, 52, "");
             var messageRt = message.rectTransform;
             messageRt.anchorMin = new Vector2(0.5f, 0.5f);
             messageRt.anchorMax = new Vector2(0.5f, 0.5f);
             messageRt.pivot = new Vector2(0.5f, 0.5f);
             messageRt.anchoredPosition = Vector2.zero;
-            messageRt.sizeDelta = new Vector2(1200f, 400f);
+            messageRt.sizeDelta = new Vector2(1400f, 400f);
             message.alignment = TextAnchor.MiddleCenter;
             message.color = new Color(1f, 0.95f, 0.8f, 1f);
 
@@ -1241,130 +817,52 @@ namespace TinyRpg.EditorTools
             var manager = managerGo.AddComponent<GameManager>();
             manager.messageText = message;
 
+            var flowGo = new GameObject("GameFlow");
+            var flow = flowGo.AddComponent<GameFlow>();
+            flow.levelText = levelText;
+
             BuildClassSelect(canvasGo.transform, font, playerWarrior, playerLancer, playerArcher,
-                playerMonk, spawnPosition, cameraFollow);
+                playerMonk, cameraFollow);
         }
 
-        /// Pantalla de seleccion de clase: las cuatro clases jugables.
-        static void BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
-            GameObject playerLancer, GameObject playerArcher, GameObject playerMonk,
-            Vector2 spawnPosition, SmoothCameraFollow cameraFollow)
+        static Image BuildHudBar(Transform parent, string name, Sprite baseSprite, Sprite fillSprite,
+            Vector2 position, Vector2 size, Color fillTint, Vector2 fillAnchorMin, Vector2 fillAnchorMax)
         {
-            // Panel a pantalla completa (ultimo hijo del canvas: se dibuja encima de todo).
-            var panelGo = new GameObject("ClassSelectPanel");
-            panelGo.transform.SetParent(canvas, false);
-            var panelImg = panelGo.AddComponent<Image>();
-            panelImg.sprite = GetWhiteSprite();
-            panelImg.color = new Color(0.05f, 0.05f, 0.07f, 0.86f);
-            var prt = panelImg.rectTransform;
-            prt.anchorMin = Vector2.zero;
-            prt.anchorMax = Vector2.one;
-            prt.offsetMin = Vector2.zero;
-            prt.offsetMax = Vector2.zero;
+            var baseGo = new GameObject(name + "Base");
+            baseGo.transform.SetParent(parent, false);
+            var baseImg = baseGo.AddComponent<Image>();
+            baseImg.sprite = baseSprite;
+            var rt = baseImg.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.zero;
+            rt.pivot = new Vector2(0f, 0f);
+            rt.anchoredPosition = position;
+            rt.sizeDelta = size;
 
-            var title = MakeText(panelGo.transform, "Title", font, 54, "ELIGE TU CLASE");
-            var trt = title.rectTransform;
-            trt.anchorMin = new Vector2(0.5f, 1f);
-            trt.anchorMax = new Vector2(0.5f, 1f);
-            trt.pivot = new Vector2(0.5f, 1f);
-            trt.anchoredPosition = new Vector2(0f, -110f);
-            trt.sizeDelta = new Vector2(900f, 80f);
-            title.alignment = TextAnchor.MiddleCenter;
-            title.color = new Color(1f, 0.93f, 0.75f, 1f);
+            var fillGo = new GameObject(name + "Fill");
+            fillGo.transform.SetParent(baseGo.transform, false);
+            var fillImg = fillGo.AddComponent<Image>();
+            fillImg.sprite = fillSprite;
+            fillImg.color = fillTint;
+            fillImg.type = Image.Type.Filled;
+            fillImg.fillMethod = Image.FillMethod.Horizontal;
+            fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fillImg.fillAmount = 1f;
+            var frt = fillImg.rectTransform;
+            frt.anchorMin = fillAnchorMin;
+            frt.anchorMax = fillAnchorMax;
+            frt.offsetMin = Vector2.zero;
+            frt.offsetMax = Vector2.zero;
 
-            var bootstrapGo = new GameObject("GameBootstrap");
-            var screen = bootstrapGo.AddComponent<ClassSelectScreen>();
-            screen.panel = panelGo;
-            screen.warriorPrefab = playerWarrior;
-            screen.lancerPrefab = playerLancer;
-            screen.archerPrefab = playerArcher;
-            screen.monkPrefab = playerMonk;
-            screen.spawnPosition = spawnPosition;
-            screen.cameraFollow = cameraFollow;
-
-            MakeClassCard(panelGo.transform, font, -450f, "Guerrero", "Tecla 1",
-                TS + "Units/Blue Units/Warrior/Warrior_Idle.png", screen, 0);
-            MakeClassCard(panelGo.transform, font, -150f, "Lancero", "Tecla 2",
-                TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
-            MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Tecla 3",
-                TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, 2);
-            MakeClassCard(panelGo.transform, font, 450f, "Monje", "Tecla 4",
-                TS + "Units/Blue Units/Monk/Idle.png", screen, 3);
+            return fillImg;
         }
 
-        static void MakeClassCard(Transform parent, Font font, float x, string title,
-            string subtitle, string portraitPath, ClassSelectScreen screen, int classIndex)
-        {
-            bool locked = classIndex < 0;
-
-            var cardGo = new GameObject("Card_" + title);
-            cardGo.transform.SetParent(parent, false);
-            var bg = cardGo.AddComponent<Image>();
-            bg.sprite = GetWhiteSprite();
-            bg.color = locked ? new Color(0.1f, 0.09f, 0.08f, 0.95f)
-                              : new Color(0.24f, 0.19f, 0.12f, 0.97f);
-            var rt = bg.rectTransform;
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(x, -30f);
-            rt.sizeDelta = new Vector2(260f, 360f);
-
-            var portraitGo = new GameObject("Portrait");
-            portraitGo.transform.SetParent(cardGo.transform, false);
-            var portrait = portraitGo.AddComponent<Image>();
-            portrait.sprite = LoadFirstSprite(portraitPath);
-            portrait.preserveAspect = true;
-            portrait.raycastTarget = false;
-            // Silueta ennegrecida para las clases bloqueadas.
-            portrait.color = locked ? new Color(0.04f, 0.04f, 0.05f, 1f) : Color.white;
-            var prt2 = portrait.rectTransform;
-            prt2.anchorMin = new Vector2(0.5f, 0.5f);
-            prt2.anchorMax = new Vector2(0.5f, 0.5f);
-            prt2.anchoredPosition = new Vector2(0f, 50f);
-            prt2.sizeDelta = new Vector2(200f, 200f);
-
-            var nameText = MakeText(cardGo.transform, "Name", font, 32, title);
-            var nrt = nameText.rectTransform;
-            nrt.anchorMin = new Vector2(0.5f, 0f);
-            nrt.anchorMax = new Vector2(0.5f, 0f);
-            nrt.pivot = new Vector2(0.5f, 0f);
-            nrt.anchoredPosition = new Vector2(0f, 66f);
-            nrt.sizeDelta = new Vector2(240f, 44f);
-            nameText.alignment = TextAnchor.MiddleCenter;
-            nameText.color = locked ? new Color(0.5f, 0.47f, 0.42f, 1f) : Color.white;
-
-            var subText = MakeText(cardGo.transform, "Subtitle", font, 22, subtitle);
-            var srt = subText.rectTransform;
-            srt.anchorMin = new Vector2(0.5f, 0f);
-            srt.anchorMax = new Vector2(0.5f, 0f);
-            srt.pivot = new Vector2(0.5f, 0f);
-            srt.anchoredPosition = new Vector2(0f, 24f);
-            srt.sizeDelta = new Vector2(240f, 34f);
-            subText.alignment = TextAnchor.MiddleCenter;
-            subText.color = locked ? new Color(0.45f, 0.4f, 0.36f, 1f)
-                                   : new Color(1f, 0.85f, 0.45f, 1f);
-
-            if (!locked)
-            {
-                var button = cardGo.AddComponent<Button>();
-                button.targetGraphic = bg;
-                var colors = button.colors;
-                colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
-                colors.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
-                button.colors = colors;
-                // Listener persistente (serializado en la escena).
-                UnityEventTools.AddIntPersistentListener(button.onClick, screen.Choose, classIndex);
-            }
-        }
-
-        /// Barra de inventario: 4 slots en la parte inferior central (teclas 1-4).
+        /// Barra de inventario abajo-centro + icono de personaje (stats al hacer
+        /// hover) a la izquierda + contador de monedas a la derecha.
         static void BuildInventoryHud(Transform canvas, Font font)
         {
             var hudGo = new GameObject("InventoryHud");
             hudGo.transform.SetParent(canvas, false);
-            // El contenedor necesita un RectTransform estirado a todo el canvas;
-            // sin el, las anclas de los slots se resuelven contra el centro de la
-            // pantalla y la barra aparece en medio en vez de abajo.
             var hudRt = hudGo.AddComponent<RectTransform>();
             hudRt.anchorMin = Vector2.zero;
             hudRt.anchorMax = Vector2.one;
@@ -1425,38 +923,208 @@ namespace TinyRpg.EditorTools
 
                 hud.slotWidgets[i] = new InventoryHud.SlotWidgets { icon = icon, countText = countText };
             }
+
+            float barHalf = (Inventory.SlotCount * (slotSize + spacing)) * 0.5f;
+
+            // ---- Contador de monedas (derecha de la barra) ----
+            var coinGo = new GameObject("CoinHud");
+            coinGo.transform.SetParent(hudGo.transform, false);
+            var coinIcon = coinGo.AddComponent<Image>();
+            coinIcon.sprite = LoadFirstSprite(TS + "UI Elements/Icons/Icon_03.png");
+            coinIcon.preserveAspect = true;
+            coinIcon.raycastTarget = false;
+            var coinRt = coinIcon.rectTransform;
+            coinRt.anchorMin = new Vector2(0.5f, 0f);
+            coinRt.anchorMax = new Vector2(0.5f, 0f);
+            coinRt.pivot = new Vector2(0f, 0f);
+            coinRt.anchoredPosition = new Vector2(barHalf + 18f, 40f);
+            coinRt.sizeDelta = new Vector2(56f, 56f);
+
+            var coinCount = MakeText(coinGo.transform, "Count", font, 30, "0");
+            var ccrt = coinCount.rectTransform;
+            ccrt.anchorMin = new Vector2(1f, 0.5f);
+            ccrt.anchorMax = new Vector2(1f, 0.5f);
+            ccrt.pivot = new Vector2(0f, 0.5f);
+            ccrt.anchoredPosition = new Vector2(8f, 0f);
+            ccrt.sizeDelta = new Vector2(90f, 40f);
+            coinCount.alignment = TextAnchor.MiddleLeft;
+            coinCount.color = new Color(1f, 0.9f, 0.5f, 1f);
+
+            var coinHud = coinGo.AddComponent<CoinHud>();
+            coinHud.countText = coinCount;
+
+            // ---- Icono de personaje (izquierda de la barra) con panel de stats ----
+            var avatarGo = new GameObject("CharacterIcon");
+            avatarGo.transform.SetParent(hudGo.transform, false);
+            var avatarBg = avatarGo.AddComponent<Image>();
+            avatarBg.sprite = white;
+            avatarBg.color = new Color(0.11f, 0.09f, 0.07f, 0.82f);
+            var art = avatarBg.rectTransform;
+            art.anchorMin = new Vector2(0.5f, 0f);
+            art.anchorMax = new Vector2(0.5f, 0f);
+            art.pivot = new Vector2(1f, 0f);
+            art.anchoredPosition = new Vector2(-barHalf - 18f, 26f);
+            art.sizeDelta = new Vector2(slotSize, slotSize);
+
+            var avatarImgGo = new GameObject("Avatar");
+            avatarImgGo.transform.SetParent(avatarGo.transform, false);
+            var avatarImg = avatarImgGo.AddComponent<Image>();
+            avatarImg.sprite = LoadFirstSprite(TS + "UI Elements/Human Avatars/Avatars_01.png");
+            avatarImg.preserveAspect = true;
+            avatarImg.raycastTarget = false;
+            var airt = avatarImg.rectTransform;
+            airt.anchorMin = Vector2.zero;
+            airt.anchorMax = Vector2.one;
+            airt.offsetMin = new Vector2(8f, 8f);
+            airt.offsetMax = new Vector2(-8f, -8f);
+
+            // Panel de estadisticas (banner) que aparece con el hover.
+            var panelGo = new GameObject("StatsPanel");
+            panelGo.transform.SetParent(avatarGo.transform, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.sprite = LoadFirstSprite(TS + "UI Elements/Banners/Banner.png");
+            panelImg.raycastTarget = false;
+            var prt = panelImg.rectTransform;
+            prt.anchorMin = new Vector2(0.5f, 1f);
+            prt.anchorMax = new Vector2(0.5f, 1f);
+            prt.pivot = new Vector2(0.5f, 0f);
+            prt.anchoredPosition = new Vector2(60f, 14f);
+            prt.sizeDelta = new Vector2(430f, 510f);
+
+            var statsText = MakeText(panelGo.transform, "Stats", font, 24, "");
+            statsText.raycastTarget = false;
+            var srt = statsText.rectTransform;
+            // Area util del pergamino Banner.png (los rollos ocupan el resto):
+            // 16-82% horizontal, 22-78% vertical del lienzo.
+            srt.anchorMin = new Vector2(0.17f, 0.23f);
+            srt.anchorMax = new Vector2(0.81f, 0.77f);
+            srt.offsetMin = Vector2.zero;
+            srt.offsetMax = Vector2.zero;
+            statsText.alignment = TextAnchor.MiddleLeft;
+            statsText.color = new Color(0.25f, 0.16f, 0.08f, 1f);
+
+            var statsPanel = avatarGo.AddComponent<PlayerStatsPanel>();
+            statsPanel.panel = panelGo;
+            statsPanel.statsText = statsText;
         }
 
-        static Image BuildHudBar(Transform parent, string name, Sprite baseSprite, Sprite fillSprite,
-            Vector2 position, Vector2 size, Color fillTint, Vector2 fillAnchorMin, Vector2 fillAnchorMax)
+        static void BuildClassSelect(Transform canvas, Font font, GameObject playerWarrior,
+            GameObject playerLancer, GameObject playerArcher, GameObject playerMonk,
+            SmoothCameraFollow cameraFollow)
         {
-            var baseGo = new GameObject(name + "Base");
-            baseGo.transform.SetParent(parent, false);
-            var baseImg = baseGo.AddComponent<Image>();
-            baseImg.sprite = baseSprite;
-            var rt = baseImg.rectTransform;
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.zero;
-            rt.pivot = new Vector2(0f, 0f);
-            rt.anchoredPosition = position;
-            rt.sizeDelta = size;
+            var panelGo = new GameObject("ClassSelectPanel");
+            panelGo.transform.SetParent(canvas, false);
+            var panelImg = panelGo.AddComponent<Image>();
+            panelImg.sprite = GetWhiteSprite();
+            panelImg.color = new Color(0.05f, 0.05f, 0.07f, 0.86f);
+            var prt = panelImg.rectTransform;
+            prt.anchorMin = Vector2.zero;
+            prt.anchorMax = Vector2.one;
+            prt.offsetMin = Vector2.zero;
+            prt.offsetMax = Vector2.zero;
 
-            var fillGo = new GameObject(name + "Fill");
-            fillGo.transform.SetParent(baseGo.transform, false);
-            var fillImg = fillGo.AddComponent<Image>();
-            fillImg.sprite = fillSprite;
-            fillImg.color = fillTint;
-            fillImg.type = Image.Type.Filled;
-            fillImg.fillMethod = Image.FillMethod.Horizontal;
-            fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
-            fillImg.fillAmount = 1f;
-            var frt = fillImg.rectTransform;
-            frt.anchorMin = fillAnchorMin;
-            frt.anchorMax = fillAnchorMax;
-            frt.offsetMin = Vector2.zero;
-            frt.offsetMax = Vector2.zero;
+            var title = MakeText(panelGo.transform, "Title", font, 54, "ELIGE TU CLASE");
+            var trt = title.rectTransform;
+            trt.anchorMin = new Vector2(0.5f, 1f);
+            trt.anchorMax = new Vector2(0.5f, 1f);
+            trt.pivot = new Vector2(0.5f, 1f);
+            trt.anchoredPosition = new Vector2(0f, -110f);
+            trt.sizeDelta = new Vector2(900f, 80f);
+            title.alignment = TextAnchor.MiddleCenter;
+            title.color = new Color(1f, 0.93f, 0.75f, 1f);
 
-            return fillImg;
+            var bootstrapGo = new GameObject("GameBootstrap");
+            var screen = bootstrapGo.AddComponent<ClassSelectScreen>();
+            screen.panel = panelGo;
+            screen.warriorPrefab = playerWarrior;
+            screen.lancerPrefab = playerLancer;
+            screen.archerPrefab = playerArcher;
+            screen.monkPrefab = playerMonk;
+            screen.spawnPosition = new Vector2(18f, 7f); // GameFlow lo actualiza al pintar la ciudad
+            screen.cameraFollow = cameraFollow;
+
+            MakeClassCard(panelGo.transform, font, -450f, "Guerrero", "Tecla 1",
+                TS + "Units/Blue Units/Warrior/Warrior_Idle.png", screen, 0);
+            MakeClassCard(panelGo.transform, font, -150f, "Lancero", "Tecla 2",
+                TS + "Units/Blue Units/Lancer/Lancer_Idle.png", screen, 1);
+            MakeClassCard(panelGo.transform, font, 150f, "Arquero", "Tecla 3",
+                TS + "Units/Blue Units/Archer/Archer_Idle.png", screen, 2);
+            MakeClassCard(panelGo.transform, font, 450f, "Monje", "Tecla 4",
+                TS + "Units/Blue Units/Monk/Idle.png", screen, 3);
+        }
+
+        static void MakeClassCard(Transform parent, Font font, float x, string title,
+            string subtitle, string portraitPath, ClassSelectScreen screen, int classIndex)
+        {
+            bool locked = classIndex < 0;
+
+            var cardGo = new GameObject("Card_" + title);
+            cardGo.transform.SetParent(parent, false);
+            var bg = cardGo.AddComponent<Image>();
+            bg.sprite = GetWhiteSprite();
+            bg.color = locked ? new Color(0.1f, 0.09f, 0.08f, 0.95f)
+                              : new Color(0.24f, 0.19f, 0.12f, 0.97f);
+            var rt = bg.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(x, -30f);
+            rt.sizeDelta = new Vector2(260f, 360f);
+
+            var portraitGo = new GameObject("Portrait");
+            portraitGo.transform.SetParent(cardGo.transform, false);
+            var portrait = portraitGo.AddComponent<Image>();
+            portrait.sprite = LoadFirstSprite(portraitPath);
+            portrait.preserveAspect = true;
+            portrait.raycastTarget = false;
+            portrait.color = locked ? new Color(0.04f, 0.04f, 0.05f, 1f) : Color.white;
+            var prt2 = portrait.rectTransform;
+            prt2.anchorMin = new Vector2(0.5f, 0.5f);
+            prt2.anchorMax = new Vector2(0.5f, 0.5f);
+            prt2.anchoredPosition = new Vector2(0f, 50f);
+            float pixelsPerWorldUnit = 200f / 3f;
+            if (portrait.sprite != null)
+            {
+                float unitsWide = portrait.sprite.rect.width / portrait.sprite.pixelsPerUnit;
+                float unitsTall = portrait.sprite.rect.height / portrait.sprite.pixelsPerUnit;
+                prt2.sizeDelta = new Vector2(unitsWide * pixelsPerWorldUnit,
+                    unitsTall * pixelsPerWorldUnit);
+            }
+            else
+            {
+                prt2.sizeDelta = new Vector2(200f, 200f);
+            }
+
+            var nameText = MakeText(cardGo.transform, "Name", font, 32, title);
+            var nrt = nameText.rectTransform;
+            nrt.anchorMin = new Vector2(0.5f, 0f);
+            nrt.anchorMax = new Vector2(0.5f, 0f);
+            nrt.pivot = new Vector2(0.5f, 0f);
+            nrt.anchoredPosition = new Vector2(0f, 66f);
+            nrt.sizeDelta = new Vector2(240f, 44f);
+            nameText.alignment = TextAnchor.MiddleCenter;
+            nameText.color = locked ? new Color(0.5f, 0.47f, 0.42f, 1f) : Color.white;
+
+            var subText = MakeText(cardGo.transform, "Subtitle", font, 22, subtitle);
+            var srt = subText.rectTransform;
+            srt.anchorMin = new Vector2(0.5f, 0f);
+            srt.anchorMax = new Vector2(0.5f, 0f);
+            srt.pivot = new Vector2(0.5f, 0f);
+            srt.anchoredPosition = new Vector2(0f, 24f);
+            srt.sizeDelta = new Vector2(240f, 34f);
+            subText.alignment = TextAnchor.MiddleCenter;
+            subText.color = locked ? new Color(0.45f, 0.4f, 0.36f, 1f)
+                                   : new Color(1f, 0.85f, 0.45f, 1f);
+
+            if (!locked)
+            {
+                var button = cardGo.AddComponent<Button>();
+                button.targetGraphic = bg;
+                var colors = button.colors;
+                colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+                colors.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+                button.colors = colors;
+                UnityEventTools.AddIntPersistentListener(button.onClick, screen.Choose, classIndex);
+            }
         }
 
         static Text MakeText(Transform parent, string name, Font font, int size, string content)
@@ -1474,8 +1142,7 @@ namespace TinyRpg.EditorTools
         }
     }
 
-    /// Punto de entrada para la verificacion visual automatizada:
-    /// abre la escena, enfoca la Game View y entra en modo Play.
+    /// Punto de entrada para la verificacion visual automatizada.
     public static class GameBoot
     {
         public static void OpenAndPlay()
@@ -1488,7 +1155,6 @@ namespace TinyRpg.EditorTools
         }
     }
 
-    /// Expone la ruta de la escena sin hacer publica toda la clase del builder.
     public static class SceneBuilder2
     {
         public const string ScenePathPublic = "Assets/Game/Scenes/Game.unity";

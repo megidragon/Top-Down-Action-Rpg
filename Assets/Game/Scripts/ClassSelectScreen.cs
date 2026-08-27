@@ -62,6 +62,9 @@ namespace TinyRpg
             var player = Instantiate(prefab, spawnPosition, Quaternion.identity);
             player.name = prefab.name;
 
+            // Equipo inicial de la run: una pocion de vida basica (1 uso).
+            player.GetComponent<Inventory>()?.AddItem(ItemType.HealthPotion, 1);
+
             if (cameraFollow != null)
             {
                 cameraFollow.target = player.transform;

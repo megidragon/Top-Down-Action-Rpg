@@ -410,7 +410,7 @@ Animator:
   m_GameObject: {fileID: 3046383720751563027}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 8340602ff7b3a2f458465c3239b9b032, type: 2}
+  m_Controller: {fileID: 9100000, guid: 9f9b489edb318554a9d1da0b8ae1760e, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -557,6 +557,7 @@ GameObject:
   - component: {fileID: 7253977255769666045}
   - component: {fileID: 8562771293299933125}
   - component: {fileID: 1186535365496542794}
+  - component: {fileID: 4177916828463385344}
   - component: {fileID: 274626141379993454}
   - component: {fileID: 7601186643884631001}
   m_Layer: 0
@@ -659,8 +660,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 150
-  maxEnergy: 100
-  energyRegenPerSecond: 25
+  maxEnergy: 50
+  energyRegenPerSecond: 12.5
   team: 0
 --- !u!114 &3519723662310892146
 MonoBehaviour:
@@ -739,6 +740,21 @@ MonoBehaviour:
   renderers:
   - {fileID: 4433167200799931950}
   isStatic: 0
+--- !u!114 &4177916828463385344
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6981376717527702334}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3eb3d2d8d7c860748bf442183aa104f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  strength: 5
+  defense: 5
+  speed: 5
 --- !u!114 &274626141379993454
 MonoBehaviour:
   m_ObjectHideFlags: 0

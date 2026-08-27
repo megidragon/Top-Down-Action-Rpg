@@ -55,7 +55,8 @@ namespace TinyRpg
 
             // El marcador de impacto queda fijado y es visible para todos; la
             // flecha cae sola aunque el arquero muera o quede aturdido.
-            ArrowStrike.Spawn(target, artilleryRadius, artilleryDamage, artilleryDelay,
+            ArrowStrike.Spawn(target, artilleryRadius,
+                artilleryDamage * CharacterAttributes.DamageOf(this), artilleryDelay,
                 artilleryKnockback, stats.team, isPlayer);
             actionRoutine = StartCoroutine(
                 ShootLockRoutine(target - (Vector2)transform.position, attackRecovery));
@@ -131,7 +132,7 @@ namespace TinyRpg
                 {
                     Vector2 shotDir = Quaternion.Euler(0f, 0f, angle) * dir;
                     ArrowProjectile.Spawn(origin, shotDir, arrowSpeed, tripleShotRange,
-                        tripleShotDamage, stats.team, isPlayer);
+                        tripleShotDamage * CharacterAttributes.DamageOf(this), stats.team, isPlayer);
                 }
             }
 

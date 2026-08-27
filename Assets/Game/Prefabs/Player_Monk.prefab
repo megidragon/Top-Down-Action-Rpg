@@ -185,6 +185,7 @@ GameObject:
   - component: {fileID: 8346619512574053112}
   - component: {fileID: 909078133377779412}
   - component: {fileID: 4012937763133786214}
+  - component: {fileID: 3567752617286337192}
   - component: {fileID: 3793811215403522837}
   - component: {fileID: 2164510233893850377}
   m_Layer: 0
@@ -287,8 +288,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 125
-  maxEnergy: 100
-  energyRegenPerSecond: 25
+  maxEnergy: 50
+  energyRegenPerSecond: 12.5
   team: 0
 --- !u!114 &8399569582483172605
 MonoBehaviour:
@@ -377,6 +378,21 @@ MonoBehaviour:
   renderers:
   - {fileID: 7672796722430270079}
   isStatic: 0
+--- !u!114 &3567752617286337192
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5531848785557138208}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3eb3d2d8d7c860748bf442183aa104f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  strength: 5
+  defense: 5
+  speed: 5
 --- !u!114 &3793811215403522837
 MonoBehaviour:
   m_ObjectHideFlags: 0

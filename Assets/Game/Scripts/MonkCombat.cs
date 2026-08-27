@@ -204,7 +204,7 @@ namespace TinyRpg
             var victimMotor = victim.GetComponent<CharacterMotor>();
             victimMotor?.AddKnockback(dir * chargeKnockback);
             victim.GetComponent<UnitAnimator>()?.FlashHit(new Color(1f, 0.4f, 0.4f, 1f));
-            victim.TakeDamage(chargeDamage, dir);
+            victim.TakeDamage(chargeDamage * CharacterAttributes.DamageOf(this), dir);
             if (!victim.IsDead) victimCombat?.GetStaggered(dir * 1.5f, chargeStun);
             if (isPlayer) SmoothCameraFollow.Shake(0.4f);
         }

@@ -204,8 +204,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 100
-  maxEnergy: 100
-  energyRegenPerSecond: 25
+  maxEnergy: 50
+  energyRegenPerSecond: 12.5
   team: 1
 --- !u!114 &2723095279616898838
 MonoBehaviour:

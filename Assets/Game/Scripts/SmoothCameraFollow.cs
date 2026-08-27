@@ -83,6 +83,15 @@ namespace TinyRpg
             transform.position = new Vector3(p.x, p.y, -10f);
         }
 
+        /// Encuadre inmediato sobre el objetivo (al cambiar de mapa).
+        public void SnapToTarget()
+        {
+            if (target == null) return;
+            anchor = target.position;
+            velocity = Vector2.zero;
+            SnapTo(anchor);
+        }
+
         Vector2 ClampToBounds(Vector2 pos)
         {
             if (cam == null || !cam.orthographic) return pos;

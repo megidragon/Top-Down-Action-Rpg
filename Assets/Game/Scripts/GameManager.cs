@@ -6,15 +6,17 @@ using UnityEngine.UI;
 
 namespace TinyRpg
 {
-    /// Estado global: referencia al jugador, recuento de enemigos,
-    /// pantalla de muerte (R para reiniciar) y cartel de victoria.
+    /// Utilidades globales de la run: referencia al jugador, mensajes en
+    /// pantalla, cadaveres de enemigos (desvanecer + soltar moneda) y el
+    /// reinicio con R al morir o ganar.
     public class GameManager : MonoBehaviour
     {
         public static PlayerController Player { get; private set; }
 
+        public static bool IsGameOver => instance != null && instance.gameOver;
+
         public Text messageText;
 
-        int enemiesAlive;
         bool gameOver;
 
         static GameManager instance;
@@ -32,39 +34,45 @@ namespace TinyRpg
 
         void Start()
         {
-            // Registrar todos los enemigos presentes en la escena.
-            foreach (var enemy in FindObjectsByType<EnemyAI>(FindObjectsSortMode.None))
-            {
-                enemiesAlive++;
-                var enemyStats = enemy.GetComponent<CharacterStats>();
-                var enemyGo = enemy.gameObject;
-                enemyStats.Died += () => OnEnemyDied(enemyGo);
-            }
             if (messageText != null) messageText.text = "";
         }
 
-        void OnEnemyDied(GameObject enemy)
+        public static void ShowMessage(string text)
         {
-            enemiesAlive--;
-            // Cada enemigo suelta una moneda al morir.
-            ItemPickup.Spawn(ItemType.Coin, (Vector2)enemy.transform.position + Vector2.up * 0.2f);
-            StartCoroutine(FadeOutAndDestroy(enemy));
-            if (enemiesAlive <= 0 && !gameOver)
-            {
-                gameOver = true;
-                if (messageText != null)
-                    messageText.text = "¡VICTORIA!\nHas limpiado la isla.\nPulsa R para volver a jugar";
-            }
+            if (instance != null && instance.messageText != null)
+                instance.messageText.text = text;
+        }
+
+        public static void ClearMessageIf(string text)
+        {
+            if (instance != null && instance.messageText != null
+                && instance.messageText.text == text && !instance.gameOver)
+                instance.messageText.text = "";
+        }
+
+        /// Fin de la run (victoria del tesoro). R recarga la escena.
+        public static void TriggerEnd(string message)
+        {
+            if (instance == null || instance.gameOver) return;
+            instance.gameOver = true;
+            ShowMessage(message);
         }
 
         void OnPlayerDied(PlayerController player)
         {
             if (gameOver) return;
             gameOver = true;
-            var anim = player.GetComponent<UnitAnimator>();
-            anim?.SetDeadVisual();
+            player.GetComponent<UnitAnimator>()?.SetDeadVisual();
             if (messageText != null)
-                messageText.text = "HAS MUERTO\nPulsa R para reintentar";
+                messageText.text = "HAS MUERTO EN EL BOSQUE\nLa run termina aqui.\nPulsa R para reintentar";
+        }
+
+        /// Desvanece el cadaver de un enemigo y suelta su moneda.
+        public static void HandleEnemyCorpse(GameObject enemy)
+        {
+            if (instance == null || enemy == null) return;
+            ItemPickup.Spawn(ItemType.Coin, (Vector2)enemy.transform.position + Vector2.up * 0.2f);
+            instance.StartCoroutine(instance.FadeOutAndDestroy(enemy));
         }
 
         IEnumerator FadeOutAndDestroy(GameObject enemy)
@@ -90,7 +98,7 @@ namespace TinyRpg
                 sr.color = c;
                 yield return null;
             }
-            Destroy(enemy);
+            if (enemy != null) Destroy(enemy);
         }
 
         void Update()
