@@ -68,6 +68,13 @@ namespace TinyRpg
             return total;
         }
 
+        public bool HasFreeSlot()
+        {
+            for (int i = 0; i < SlotCount; i++)
+                if (slots[i].type == ItemType.None) return true;
+            return false;
+        }
+
         public bool AddItem(ItemType type, int amount = 1)
         {
             if (type == ItemType.None || amount <= 0) return false;
@@ -79,14 +86,19 @@ namespace TinyRpg
                 return true;
             }
 
-            // Apilar sobre un slot existente del mismo tipo.
-            for (int i = 0; i < SlotCount; i++)
-                if (slots[i].type == type)
-                {
-                    slots[i].count += amount;
-                    Changed?.Invoke();
-                    return true;
-                }
+            // Las pociones NO se apilan: cada botella ocupa su propio slot y
+            // 'count' son los usos que le quedan (1/2/3 segun el tipo comprado).
+            bool stackable = type != ItemType.HealthPotion;
+            if (stackable)
+            {
+                for (int i = 0; i < SlotCount; i++)
+                    if (slots[i].type == type)
+                    {
+                        slots[i].count += amount;
+                        Changed?.Invoke();
+                        return true;
+                    }
+            }
 
             // Ocupar el primer slot libre.
             for (int i = 0; i < SlotCount; i++)

@@ -732,7 +732,8 @@ namespace TinyRpg.EditorTools
 
             var itemsGo = new GameObject("ItemLibrary");
             var itemLib = itemsGo.AddComponent<ItemLibrary>();
-            itemLib.coinIcon = coinIconSprite;
+            // La moneda dropeada usa el MISMO icono que el contador del HUD (Icon_03).
+            itemLib.coinIcon = LoadFirstSprite(TS + "UI Elements/Icons/Icon_03.png");
             itemLib.potionIcon = potionIconSprite;
 
             var vfxGo = new GameObject("VfxLibrary");

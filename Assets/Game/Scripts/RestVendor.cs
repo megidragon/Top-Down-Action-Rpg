@@ -171,7 +171,11 @@ namespace TinyRpg
             if (feedbackTimer > 0f)
             {
                 feedbackTimer -= Time.deltaTime;
-                if (feedbackTimer <= 0f && coinIcon != null) coinIcon.color = Color.white;
+                if (feedbackTimer <= 0f)
+                {
+                    if (coinIcon != null) coinIcon.color = Color.white;
+                    if (offerIcon != null) offerIcon.color = Color.white;
+                }
             }
         }
 
@@ -179,6 +183,19 @@ namespace TinyRpg
         {
             var inventory = player.GetComponent<Inventory>();
             if (inventory == null) return;
+
+            // Sin hueco libre no hay compra de pociones (y no se cobra nada).
+            bool needsSlot = offer == Offer.PotionSmall || offer == Offer.PotionMedium
+                || offer == Offer.PotionLarge;
+            if (needsSlot && !inventory.HasFreeSlot())
+            {
+                if (offerIcon != null)
+                {
+                    offerIcon.color = new Color(1f, 0.35f, 0.3f, 1f);
+                    feedbackTimer = 0.35f;
+                }
+                return;
+            }
 
             if (!inventory.TrySpendCoins(price))
             {
