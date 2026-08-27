@@ -1,82 +1,82 @@
 # 🏹 El Tesoro del Bosque
 
-*Un Action RPG roguelike top-down hecho en Unity 6 con los assets de [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords).*
+*A top-down Action RPG roguelike made in Unity 6 with the [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) asset pack.*
 
-Cuenta la leyenda que en el corazón del bosque más peligroso del reino duerme un tesoro sin dueño. Muchos entraron a buscarlo. Ninguno volvió. Elige tu clase, cruza la muralla de árboles y ábrete camino a través de **10 niveles** cada vez más hostiles hasta el corazón del bosque.
+Legend has it that an unclaimed treasure sleeps in the heart of the kingdom's most dangerous forest. Many went in to find it. None came back. Pick your class, cross the wall of trees and fight your way through **10 increasingly hostile levels** to the heart of the forest.
 
-![Pantalla de título](Screenshots/titulo.png)
+![Title screen](Screenshots/titulo.png)
 
-## ✨ Características
+## ✨ Features
 
-- **4 clases jugables**, cada una con su identidad y su propio kit
-- **Combate de acción en tiempo real** con parry direccional, dash y gestión de energía
-- **Roguelike**: 10 niveles de bosque con diseños únicos, dificultad creciente y muerte permanente
-- **Campamentos de descanso** con fogata curativa y mercaderes de pociones y elixires
-- **Sistema de estadísticas** (fuerza / defensa / velocidad) que crece durante la run
-- Interfaz completa: menú, configuración (resolución, idioma **ES/EN**, volúmenes, temblor de cámara) y pausa
-- Instalador para Windows
+- **4 playable classes**, each with its own identity and kit
+- **Real-time action combat** with directional parry, dash and energy management
+- **Roguelike**: 10 forest levels with unique layouts, rising difficulty and permadeath
+- **Rest camps** with a healing campfire and merchants selling potions and elixirs
+- **Stats system** (strength / defense / speed) that grows over the run
+- Full UI: title menu, settings (resolution, **ES/EN** language, volumes, screen shake) and pause
+- Windows installer
 
-## ⚔️ Sistema de combate
+## ⚔️ Combat system
 
-![Combate en el bosque](Screenshots/combate.png)
+![Combat in the forest](Screenshots/combate.png)
 
-Todo el combate gira alrededor del ratón: **apuntas donde miras**, y jugador y enemigos comparten las mismas reglas.
+Combat revolves around the mouse: **you aim where you look**, and player and enemies play by the same rules.
 
-| Mecánica | Cómo funciona |
+| Mechanic | How it works |
 |---|---|
-| **Ataque principal** (click izq.) | Barrido en abanico de **130°** centrado en el cursor, de corto alcance |
-| **Ataque especial** (click der.) | Estocada en línea recta de mayor alcance (o el especial de cada clase) |
-| **Parry** (Espacio) | Bloquea **un** golpe que llegue dentro de un cono de 60° hacia donde apuntas — el atacante bloqueado sale despedido y aturdido. ¡Bloquea también flechas! |
-| **Dash** (Shift) | Impulso rápido en la dirección de movimiento |
-| **Energía** | Cada ataque y cada dash cuestan 25 de una barra de 50 que se regenera sola: no puedes spamear |
-| **Impactos** | Los golpes empujan al objetivo y sacuden la cámara (desactivable en opciones) |
+| **Primary attack** (left click) | Short-range **130°** fan sweep centered on the cursor |
+| **Special attack** (right click) | Longer straight-line thrust (or each class's own special) |
+| **Parry** (Space) | Blocks **one** hit landing inside a 60° cone toward your aim — the blocked attacker is knocked back and staggered. It blocks arrows too! |
+| **Dash** (Shift) | Quick burst in your movement direction |
+| **Energy** | Every attack and dash costs 25 out of a self-regenerating 50-point bar: no spamming |
+| **Hits** | Landed blows knock the target back and shake the camera (can be disabled in settings) |
 
-### Las clases
+### The classes
 
-![Selección de clase](Screenshots/seleccion-clase.png)
+![Class selection](Screenshots/seleccion-clase.png)
 
-- 🗡️ **Guerrero** — el equilibrado: 150 de vida, espada rápida y fiable.
-- 🔱 **Lancero** — alcance superior y más daño por golpe, pero su arma pesada tarda un 75% más en recuperarse entre ataques. 112 de vida.
-- 🏹 **Arquero** — el cristal: 75 de vida. Mantén el click izquierdo para apuntar una **lluvia de flechas** en área (el objetivo se marca en el suelo medio segundo antes del impacto) y dispara **ráfagas de 3 flechas** con el derecho.
-- ✊ **Monje** — el alborotador: sin parry, pero se **cura a sí mismo** (y a aliados cercanos) con Espacio, sus patadas mandan a volar a los enemigos y su **embestida** — redirigible en pleno vuelo — aturde al impactar. 125 de vida.
+- 🗡️ **Warrior** — the balanced one: 150 HP, a fast and reliable sword.
+- 🔱 **Lancer** — superior reach and more damage per hit, but his heavy weapon takes 75% longer to recover between attacks. 112 HP.
+- 🏹 **Archer** — the glass cannon: 75 HP. Hold left click to aim an area **arrow rain** (the target zone is marked on the ground half a second before impact) and fire **3-arrow bursts** with right click.
+- ✊ **Monk** — the brawler: no parry, but he **heals himself** (and nearby allies) with Space, his kicks send enemies flying, and his **charge** — steerable mid-flight — stuns on impact. 125 HP.
 
-Los enemigos usan las cuatro clases con IA propia: los arqueros te telegrafían la lluvia de flechas y mantienen la distancia, los monjes se curan y embisten, los lanceros te sobrepasan en alcance.
+Enemies use all four classes with their own AI: archers telegraph their arrow rain and keep their distance, monks heal and charge, lancers outrange you.
 
-## 🌲 La expedición
+## 🌲 The expedition
 
-![Ciudad inicial](Screenshots/ciudad.png)
+![Starting town](Screenshots/ciudad.png)
 
-1. **La ciudad**: tu punto de partida, con sus vecinos trabajando. La entrada al bosque está marcada al norte.
-2. **Niveles 1–10**: mapas cerrados por murallas de árboles — claros, estanques, ríos con vados, pantanos, laberintos de arboledas... Limpia el nivel para desbloquear la salida. Cada 3 niveles se suma un enemigo más.
-3. **Campamentos** (tras los niveles 3, 6 y 9): descansa junto a la fogata (curación completa) y compra a los mercaderes — pociones de 1/2/3 usos (1/3/6 monedas) o **elixires permanentes** de fuerza, defensa o velocidad (4 monedas).
-4. **El tesoro**: en el nivel 10 te espera la recompensa... si llegas.
+1. **The town**: your starting point, with its townsfolk at work. The forest entrance is marked to the north.
+2. **Levels 1–10**: maps walled in by trees — clearings, ponds, fordable rivers, swamps, grove mazes... Clear the level to unlock the exit. Every 3 levels one more enemy joins the fight.
+3. **Camps** (after levels 3, 6 and 9): rest by the campfire (full heal) and buy from the merchants — 1/2/3-use potions (1/3/6 coins) or **permanent elixirs** of strength, defense or speed (4 coins).
+4. **The treasure**: your reward awaits on level 10... if you make it.
 
-Las monedas las sueltan los enemigos al morir y se recogen con solo acercarse. El inventario tiene 4 huecos (teclas 1–4) y las botellas de vida no se apilan: cada una ocupa su hueco con sus usos.
+Enemies drop coins on death and you pick them up just by walking close. The inventory has 4 slots (keys 1–4) and health bottles don't stack: each one takes its own slot with its remaining uses.
 
-## 🎮 Controles
+## 🎮 Controls
 
-| Acción | Control |
+| Action | Control |
 |---|---|
-| Moverse | `WASD` |
+| Move | `WASD` |
 | Dash | `Shift` |
-| Ataque principal / especial | `Click izq.` / `Click der.` |
-| Parry o curación | `Espacio` |
-| Usar objeto | `1`–`4` |
-| Interactuar / comprar | `E` |
-| Pausa | `ESC` |
-| Reintentar tras morir | `R` |
+| Primary / special attack | `Left click` / `Right click` |
+| Parry or heal | `Space` |
+| Use item | `1`–`4` |
+| Interact / buy | `E` |
+| Pause | `ESC` |
+| Retry after dying | `R` |
 
-## 🛠️ Desarrollo
+## 🛠️ Development
 
-- **Unity 6** (6000.0) con URP 2D e Input System.
-- Todo el mundo se genera **en runtime**: la escena solo contiene los sistemas, y los 12 mapas (ciudad, 10 niveles y campamento) se pintan al vuelo con autotiling sobre el tileset de Tiny Swords.
-- La escena se regenera por completo desde el menú **TinyRpg → Construir escena del juego**; el ejecutable con **TinyRpg → Compilar juego (Windows)** y el instalador con [Inno Setup](https://jrsoftware.org/isinfo.php) (`Installer/ElTesoroDelBosque.iss`).
+- **Unity 6** (6000.0) with URP 2D and the Input System.
+- The whole world is generated **at runtime**: the scene only contains the systems, and the 12 maps (town, 10 levels and the rest camp) are painted on the fly with autotiling over the Tiny Swords tileset.
+- The scene is fully regenerated from the **TinyRpg → Construir escena del juego** menu; the executable with **TinyRpg → Compilar juego (Windows)** and the installer with [Inno Setup](https://jrsoftware.org/isinfo.php) (`Installer/ElTesoroDelBosque.iss`).
 
-## 🙏 Créditos
+## 🙏 Credits
 
-- **Arte**: [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) de **[Pixel Frog](https://pixelfrog-assets.itch.io/)** — un pack de assets excepcional. ¡Gracias!
-- **Iconos de objetos**: *Tiny Fantasy Icons* de **Vespa Warrior** (Unity Asset Store).
+- **Art**: [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by **[Pixel Frog](https://pixelfrog-assets.itch.io/)** — an exceptional asset pack. Thank you!
+- **Item icons**: *Tiny Fantasy Icons* by **Vespa Warrior** (Unity Asset Store).
 
-## 📄 Licencia
+## 📄 License
 
-El código fuente del proyecto se publica bajo licencia [MIT](LICENSE) — úsalo, apréndelo y modifícalo libremente. Los assets artísticos pertenecen a sus creadores y conservan sus propias licencias.
+The project's source code is released under the [MIT](LICENSE) license — use it, learn from it and modify it freely. Art assets belong to their creators and keep their own licenses.
