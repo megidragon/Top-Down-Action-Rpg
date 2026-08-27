@@ -44,7 +44,17 @@ namespace TinyRpg
         public static bool ScreenShake
         {
             get { EnsureLoaded(); return screenShake; }
-            set { EnsureLoaded(); screenShake = value; PlayerPrefs.SetInt(KeyShake, value ? 1 : 0); PlayerPrefs.Save(); }
+            set
+            {
+                EnsureLoaded();
+                screenShake = value;
+                // La camara tiene su propio interruptor: asi el sistema de
+                // combate (exportable como paquete) no depende de los ajustes
+                // del juego, sino al reves.
+                SmoothCameraFollow.ShakeEnabled = value;
+                PlayerPrefs.SetInt(KeyShake, value ? 1 : 0);
+                PlayerPrefs.Save();
+            }
         }
 
         /// Fuerza los controles tactiles en escritorio (para probarlos en el
@@ -120,6 +130,7 @@ namespace TinyRpg
             resHeight = PlayerPrefs.GetInt(KeyResH, 0);
             fullscreen = PlayerPrefs.GetInt(KeyFullscreen, 1) == 1;
             screenShake = PlayerPrefs.GetInt(KeyShake, 1) == 1;
+            SmoothCameraFollow.ShakeEnabled = screenShake; // sincroniza la camara
             forceTouch = PlayerPrefs.GetInt(KeyTouch, 0) == 1;
             volGeneral = PlayerPrefs.GetFloat(KeyVolGeneral, 1f);
             volEffects = PlayerPrefs.GetFloat(KeyVolEffects, 1f);

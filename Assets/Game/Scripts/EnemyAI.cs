@@ -93,11 +93,33 @@ namespace TinyRpg
                 duelist.autoDrive = false; // conduce EnemyAI: patrulla y aggro
             }
             duelist.brain = brain;
+            // ApplyTier puede haber corrido antes de que existiera el cerebro.
+            duelist.reactionDelay = reactionDelay;
         }
+
+        /// Instala un campeon entrenado por neuroevolucion. El retardo de
+        /// percepcion sigue siendo el del tier (un campeon en el nivel 4
+        /// piensa con reflejos del nivel 4), pero el ritmo de decision se
+        /// acota: la red se entreno decidiendo a ~12 Hz y evaluarla cuesta
+        /// menos que una consulta de fisica, no hay motivo para ahogarla.
+        public void ApplyNeuralBrain(AI.NeuralNet net)
+        {
+            ApplyBrain(CombatBrain.Neural);
+            duelist.net = net;
+            thinkInterval = Mathf.Min(thinkInterval, 0.12f);
+        }
+
+        /// Retardo entre percibir y actuar. Ver ApplyTier.
+        float reactionDelay = 0.25f;
 
         public void ApplyTier(int newTier)
         {
             tier = newTier;
+            // El retardo de percepcion es lo que hace justo al enemigo: actua
+            // sobre lo que vio hace ese tiempo, nunca sobre el presente. Ni
+            // siquiera el tier alto baja de 0.16 s, por debajo del reflejo
+            // humano (~0.25 s) pero lejos de la reaccion instantanea.
+            float reaction;
             switch (tier)
             {
                 case 0:
@@ -106,6 +128,7 @@ namespace TinyRpg
                     pauseScale = 1.7f;
                     parryChance = 0f;
                     dashChance = 0f;
+                    reaction = 0.34f;
                     break;
                 case 1:
                     aggroRange = 6f;
@@ -113,12 +136,16 @@ namespace TinyRpg
                     pauseScale = 1.25f;
                     parryChance = 0.15f;
                     dashChance = 0.15f;
+                    reaction = 0.25f;
                     break;
                 default:
                     thinkInterval = 0.15f;
                     pauseScale = 1f;
+                    reaction = 0.18f;
                     break;
             }
+            reactionDelay = reaction;
+            if (duelist != null) duelist.reactionDelay = reaction;
             RefreshClassTuning();
         }
 
@@ -182,7 +209,9 @@ namespace TinyRpg
             float best = float.MaxValue;
 
             var player = GameManager.Player;
-            if (player != null)
+            // activeInHierarchy: en las pruebas del coliseo el jugador se
+            // desactiva, y no debe seguir siendo un objetivo valido.
+            if (player != null && player.gameObject.activeInHierarchy)
             {
                 var ps = player.GetComponent<CharacterStats>();
                 if (ps != null && !ps.IsDead)
@@ -420,7 +449,10 @@ namespace TinyRpg
 
         IEnumerator ParryReaction(CharacterCombat playerCombat)
         {
-            yield return new WaitForSeconds(Random.Range(0.03f, 0.1f));
+            // Reflejo completo, no instantaneo: con 0.18 s de anticipacion del
+            // golpe esto llega casi siempre tarde, que es justo lo que le pasa a
+            // una persona. Antes eran 0.03-0.1 s, imposibles de igualar.
+            yield return new WaitForSeconds(reactionDelay * Random.Range(0.85f, 1.2f));
             if (stats.IsDead || combat.IsBusy) yield break;
             Vector2 dir = ((Vector2)playerCombat.transform.position - (Vector2)transform.position).normalized;
             combat.TryParry(dir);
@@ -456,6 +488,18 @@ namespace TinyRpg
                         float dist = toFoe.magnitude;
                         Vector2 dir = dist > 0.001f ? toFoe / dist : Vector2.right;
                         motor.AimDirection = dir; // los enemigos apuntan a donde miran
+
+                        // Cerebro neuronal: la red entrega el vector de
+                        // movimiento directamente, no una distancia que
+                        // interpretar. Solo se le suma la separacion entre
+                        // companeros, que es cosa del grupo y no del duelo.
+                        if (duelist != null && duelist.brain == CombatBrain.Neural)
+                        {
+                            desired = duelist.NeuralMove;
+                            desired += Separation(pos) * 0.6f;
+                            if (desired.sqrMagnitude > 1f) desired.Normalize();
+                            break;
+                        }
 
                         if (dist > preferredDistance) desired = dir;
                         else if (dist < preferredDistance * 0.55f) desired = -dir * 0.6f;

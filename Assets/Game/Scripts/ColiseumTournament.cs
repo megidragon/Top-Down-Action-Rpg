@@ -69,17 +69,9 @@ namespace TinyRpg
             float previousScale = Time.timeScale;
             Time.timeScale = Mathf.Max(0.1f, speedMultiplier);
 
-            var cam = Camera.main;
-            var follow = cam != null ? cam.GetComponent<SmoothCameraFollow>() : null;
-            float previousSize = cam != null ? cam.orthographicSize : 7f;
             Vector2 arenaCenter = LabArena.Instance != null
                 ? LabArena.Instance.Center : new Vector2(17f, 13f);
-            if (cam != null)
-            {
-                if (follow != null) follow.enabled = false;
-                cam.orthographicSize = 11f;
-                cam.transform.position = new Vector3(arenaCenter.x, arenaCenter.y, -10f);
-            }
+            LabArena.Instance?.BeginSpectator(arenaCenter, 11f);
 
             int totalFights = n * (n - 1) / 2;
             int fought = 0;
@@ -107,11 +99,7 @@ namespace TinyRpg
                 }
 
             Time.timeScale = previousScale;
-            if (cam != null)
-            {
-                cam.orthographicSize = previousSize;
-                if (follow != null) follow.enabled = true;
-            }
+            LabArena.Instance?.EndSpectator();
             Cleanup();
 
             // ---- Clasificacion ----
@@ -172,18 +160,10 @@ namespace TinyRpg
             float previousScale = Time.timeScale;
             Time.timeScale = Mathf.Max(0.1f, speedMultiplier);
 
-            // Camara fija sobre la arena: los duelos se ven enteros.
-            var cam = Camera.main;
-            var follow = cam != null ? cam.GetComponent<SmoothCameraFollow>() : null;
-            float previousSize = cam != null ? cam.orthographicSize : 7f;
+            // Espectador: el jugador se aparta y la camara queda libre.
             Vector2 arenaCenter = LabArena.Instance != null
                 ? LabArena.Instance.Center : new Vector2(17f, 13f);
-            if (cam != null)
-            {
-                if (follow != null) follow.enabled = false;
-                cam.orthographicSize = 10f;
-                cam.transform.position = new Vector3(arenaCenter.x, arenaCenter.y, -10f);
-            }
+            LabArena.Instance?.BeginSpectator(arenaCenter, 10f);
 
             var brains = (CombatBrain[])Enum.GetValues(typeof(CombatBrain));
             int index = 0;
@@ -207,11 +187,7 @@ namespace TinyRpg
             }
 
             Time.timeScale = previousScale;
-            if (cam != null)
-            {
-                cam.orthographicSize = previousSize;
-                if (follow != null) follow.enabled = true;
-            }
+            LabArena.Instance?.EndSpectator();
             Cleanup();
             WriteLog();
             Running = false;

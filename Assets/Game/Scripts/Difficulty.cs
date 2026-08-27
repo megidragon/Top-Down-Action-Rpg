@@ -113,6 +113,18 @@ namespace TinyRpg
             };
         }
 
+        /// Probabilidad de que un enemigo use un campeon neuroevolucionado (si
+        /// su clase tiene uno entrenado). Desde el nivel 4, y creciendo con la
+        /// profundidad: los cerebros escritos a mano nunca desaparecen del
+        /// todo, que la variedad de rivales es parte del juego.
+        public static float NeuralChanceFor(int level)
+        {
+            if (level < 4) return 0f;
+            if (level < 8) return 0.25f;
+            if (level < 14) return 0.35f;
+            return 0.45f;
+        }
+
         /// Elige un cerebro para un enemigo del nivel dado. 'elitesLeft' es el
         /// cupo de elites que queda en este nivel; si se agota, se reintenta
         /// con la parte no-elite de la bolsa.

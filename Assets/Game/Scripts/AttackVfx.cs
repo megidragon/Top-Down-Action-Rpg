@@ -17,6 +17,7 @@ namespace TinyRpg
         public static void SpawnArc(Vector2 origin, Vector2 dir, float radius, float halfAngleDeg,
             Color color, int sortingOrder, float lifetime)
         {
+            if (TrainingMode.Active) return; // entrenando no se dibuja nada
             int segments = Mathf.Max(6, Mathf.CeilToInt(halfAngleDeg / 9f));
             var verts = new Vector3[segments + 2];
             var colors = new Color[segments + 2];
@@ -46,6 +47,7 @@ namespace TinyRpg
         public static void SpawnLine(Vector2 origin, Vector2 dir, float length, float width,
             Color color, int sortingOrder, float lifetime)
         {
+            if (TrainingMode.Active) return;
             dir = dir.normalized;
             Vector2 side = new Vector2(-dir.y, dir.x) * (width * 0.5f);
             var verts = new Vector3[]
@@ -64,6 +66,9 @@ namespace TinyRpg
         /// Anillo persistente (marcador de area). El llamador lo posiciona y destruye.
         public static GameObject CreateRing(float radius, Color color, int sortingOrder)
         {
+            // Entrenando se devuelve un objeto vacio: los llamadores lo
+            // posicionan y lo destruyen, asi que no puede ser null.
+            if (TrainingMode.Active) return new GameObject("AreaRing(sin dibujar)");
             const int segments = 44;
             float inner = Mathf.Max(0.02f, radius - 0.09f);
             var verts = new Vector3[(segments + 1) * 2];

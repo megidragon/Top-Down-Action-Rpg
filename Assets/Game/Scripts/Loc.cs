@@ -87,6 +87,10 @@ namespace TinyRpg
             ["touch.ally_flee"] = ("HUID", "FLEE"),
             ["settings.touch"] = ("Controles tactiles", "Touch controls"),
 
+            ["lab.spectator"] = (
+                "MODO ESPECTADOR\nWASD / flechas  mover camara\nRueda  zoom\nBoton derecho  arrastrar",
+                "SPECTATOR MODE\nWASD / arrows  pan camera\nWheel  zoom\nRight button  drag"),
+
             // Escena de pruebas (Lab)
             ["lab.title"] = ("LAB · Coliseo", "LAB · Colosseum"),
             ["lab.keys"] = (

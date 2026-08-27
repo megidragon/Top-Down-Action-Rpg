@@ -19,6 +19,8 @@ namespace TinyRpg.EditorTools
         const string PlayerRequest = "Library/tinyrpg_player_request.txt";
         const string ReimportRequest = "Library/tinyrpg_reimport_request.txt";
         const string LabRequest = "Library/tinyrpg_lab_request.txt";
+        const string TrainingRequest = "Library/tinyrpg_training_request.txt";
+        const string ExportRequest = "Library/tinyrpg_export_request.txt";
         const string AndroidRequest = "Library/tinyrpg_android_request.txt";
         const string ResultFile = "Library/tinyrpg_build_result.txt";
 
@@ -84,6 +86,49 @@ namespace TinyRpg.EditorTools
                 return;
             }
 
+            if (File.Exists(ExportRequest))
+            {
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                File.Delete(ExportRequest);
+                try
+                {
+                    CombatPackageExporter.Export();
+                    File.WriteAllText(ResultFile, "EXPORT OK " + DateTime.Now.ToString("HH:mm:ss"));
+                }
+                catch (Exception e)
+                {
+                    File.WriteAllText(ResultFile, "EXPORT FAIL " + e);
+                }
+                return;
+            }
+
+            if (File.Exists(TrainingRequest))
+            {
+                AssetDatabase.Refresh();
+                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                string mode = "";
+                try { mode = File.ReadAllText(TrainingRequest).Trim(); } catch { }
+                File.Delete(TrainingRequest);
+                try
+                {
+                    SceneBuilder.BuildTraining();
+                    File.WriteAllText(ResultFile, "TRAINING OK " + DateTime.Now.ToString("HH:mm:ss"));
+                    // "play": ademas de construir, abrirla y entrar en Play para
+                    // que el entrenamiento arranque sin tocar nada.
+                    if (mode == "play")
+                    {
+                        EditorSceneManager.OpenScene(SceneBuilder2.TrainingScenePathPublic);
+                        EditorApplication.EnterPlaymode();
+                    }
+                }
+                catch (Exception e)
+                {
+                    File.WriteAllText(ResultFile, "TRAINING FAIL " + e);
+                }
+                return;
+            }
+
             if (File.Exists(ReimportRequest))
             {
                 File.Delete(ReimportRequest);
@@ -117,7 +162,8 @@ namespace TinyRpg.EditorTools
                 // Si la peticion empieza por "lab:", se verifica la escena de
                 // pruebas en vez de la del juego.
                 string req = File.ReadAllText(VerifyRequest).TrimStart();
-                bool onLab = req.StartsWith("lab:") || req.StartsWith("duels:");
+                bool onLab = req.StartsWith("lab:") || req.StartsWith("duels:")
+                    || req.StartsWith("neuro:");
                 var scenePath = onLab
                     ? SceneBuilder2.LabScenePathPublic : SceneBuilder2.ScenePathPublic;
                 if (!File.Exists(scenePath))

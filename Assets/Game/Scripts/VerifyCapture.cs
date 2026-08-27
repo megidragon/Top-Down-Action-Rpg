@@ -32,6 +32,7 @@ namespace TinyRpg
             string outDir = Environment.GetEnvironmentVariable("TINYRPG_CAPTURE");
             bool exitEditorWhenDone = !string.IsNullOrEmpty(outDir);
             bool duels = false;
+            bool neuro = false;
 
             if (string.IsNullOrEmpty(outDir) && File.Exists(VerifyRequest))
             {
@@ -40,6 +41,7 @@ namespace TinyRpg
                 // "touch:" fuerza los controles tactiles (PreInit).
                 if (outDir.StartsWith("lab:")) outDir = outDir.Substring(4).Trim();
                 if (outDir.StartsWith("duels:")) { duels = true; outDir = outDir.Substring(6).Trim(); }
+                if (outDir.StartsWith("neuro:")) { neuro = true; outDir = outDir.Substring(6).Trim(); }
                 if (outDir.StartsWith("touch:")) outDir = outDir.Substring(6).Trim();
                 File.Delete(VerifyRequest);
             }
@@ -52,6 +54,7 @@ namespace TinyRpg
             runner.outDir = outDir;
             runner.exitEditorWhenDone = exitEditorWhenDone;
             runner.runDuels = duels;
+            runner.runNeuro = neuro;
         }
     }
 
@@ -60,6 +63,7 @@ namespace TinyRpg
         public string outDir;
         public bool exitEditorWhenDone;
         public bool runDuels;
+        public bool runNeuro;
 
         IEnumerator Start()
         {
@@ -168,6 +172,21 @@ namespace TinyRpg
             if (LabArena.Instance != null)
             {
                 var lab = LabArena.Instance;
+                if (runNeuro)
+                {
+                    var bench = lab.StartNeuroBenchmark(120);
+                    float g = 0f;
+                    while (bench != null && bench.Running && g < 900f)
+                    {
+                        g += Time.unscaledDeltaTime;
+                        yield return null;
+                    }
+                    File.WriteAllText("Library/tinyrpg_verify_done.txt",
+                        "NEURO " + DateTime.Now.ToString("HH:mm:ss"));
+                    UnityEditor.EditorApplication.isPlaying = false;
+                    yield break;
+                }
+
                 if (runDuels)
                 {
                     // Apartar al jugador para que no estorbe en los duelos.

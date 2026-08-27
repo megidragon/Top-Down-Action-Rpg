@@ -57,6 +57,44 @@ namespace TinyRpg
             RefreshTexts();
         }
 
+        // ----------------------------------------------------------------
+        //  Modo espectador (durante las pruebas)
+        // ----------------------------------------------------------------
+
+        bool spectating;
+
+        /// Aparta al jugador y da control libre de camara: en las pruebas el
+        /// personaje solo estorba (se cuela en las peleas y la camara lo
+        /// persigue en vez de mirar los duelos).
+        public void BeginSpectator(Vector2 center, float size)
+        {
+            var player = GameManager.Player;
+            if (player != null) player.gameObject.SetActive(false);
+
+            var cam = Camera.main;
+            if (cam == null) return;
+            var free = cam.GetComponent<FreeCameraController>();
+            if (free == null) free = cam.gameObject.AddComponent<FreeCameraController>();
+            free.Activate(center, size);
+            spectating = true;
+
+            if (hintText != null) hintText.text = Loc.T("lab.spectator");
+        }
+
+        public void EndSpectator()
+        {
+            if (!spectating) return;
+            spectating = false;
+
+            var cam = Camera.main;
+            cam?.GetComponent<FreeCameraController>()?.Deactivate();
+
+            var player = GameManager.Player;
+            if (player != null) player.gameObject.SetActive(true);
+
+            RefreshTexts();
+        }
+
         /// Torneo de cerebros de combate (F9): 6 duelos espejo + 3 cruzados.
         public ColiseumTournament StartTournament(float speed = 1f, int reps = 1)
         {
@@ -68,6 +106,18 @@ namespace TinyRpg
             ClearEnemies();
             tournament.StartTournament();
             return tournament;
+        }
+
+        /// Banco de pruebas del entrenamiento neuronal: mide cuantos duelos
+        /// por segundo se consiguen con arenas en paralelo.
+        public AI.NeuroBenchmark StartNeuroBenchmark(int duels = 120)
+        {
+            var bench = GetComponent<AI.NeuroBenchmark>();
+            if (bench == null) bench = gameObject.AddComponent<AI.NeuroBenchmark>();
+            if (bench.Running) return bench;
+            ClearEnemies();
+            bench.StartBenchmark(duels);
+            return bench;
         }
 
         /// Liga de las 30 combinaciones (5 clases x 6 algoritmos), todas
@@ -160,6 +210,7 @@ namespace TinyRpg
             if (keyboard.f8Key.wasPressedThisFrame) SpawnAlly();
             if (keyboard.f9Key.wasPressedThisFrame) StartTournament();
             if (keyboard.f10Key.wasPressedThisFrame) StartLeague();
+            if (keyboard.f11Key.wasPressedThisFrame) StartNeuroBenchmark();
         }
 
         /// Punto bajo el cursor, siempre dentro del coliseo.

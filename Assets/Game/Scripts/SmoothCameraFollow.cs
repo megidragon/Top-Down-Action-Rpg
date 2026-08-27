@@ -38,9 +38,13 @@ namespace TinyRpg
             }
         }
 
+        /// Interruptor propio para que el sistema de combate no dependa de los
+        /// ajustes del juego (GameSettings lo escribe al cargar y al cambiar).
+        public static bool ShakeEnabled = true;
+
         public static void Shake(float amount)
         {
-            if (!GameSettings.ScreenShake) return; // desactivable en Configuracion
+            if (!ShakeEnabled) return; // desactivable en Configuracion
             if (instance != null)
                 instance.trauma = Mathf.Clamp01(instance.trauma + amount);
         }

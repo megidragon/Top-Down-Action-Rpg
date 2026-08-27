@@ -26,6 +26,7 @@ namespace TinyRpg.EditorTools
         const string OutDir = "Assets/Game";
         const string ScenePath = OutDir + "/Scenes/Game.unity";
         const string LabScenePath = OutDir + "/Scenes/Lab.unity";
+        const string TrainingScenePath = OutDir + "/Scenes/Training.unity";
 
         static System.Random rng;
         static Sprite coinIconSprite;   // moneda dropeada (Tiny Fantasy)
@@ -102,6 +103,106 @@ namespace TinyRpg.EditorTools
             catch (Exception e)
             {
                 Debug.LogError("[SceneBuilder] FALLO (lab): " + e);
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                throw;
+            }
+        }
+
+        /// Escena SOLO de entrenamiento neuroevolutivo: sin jugador, sin HUD de
+        /// juego y sin mapa. Camara libre, las arenas del ParallelTrainer y un
+        /// marcador con generaciones y records. Entra en Play y entrena sola.
+        [MenuItem("TinyRpg/Construir escena de entrenamiento (Neuro)")]
+        public static void BuildTraining()
+        {
+            try
+            {
+                rng = new System.Random(20260829);
+                EnsureFolders();
+
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var units = BuildUnitsAndPrefabs();
+
+                // Camara, luz global y las bibliotecas de VFX/objetos que usan
+                // los ataques. Nada mas del juego hace falta aqui.
+                BuildCameraAndLight();
+
+                var canvasGo = new GameObject("TrainingUI");
+                var canvas = canvasGo.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var scaler = canvasGo.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.matchWidthOrHeight = 0.5f;
+
+                var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+                // Marcador (arriba a la izquierda): generacion, record, ritmo.
+                var overlay = MakeText(canvasGo.transform, "Overlay", font, 26, "");
+                var ort = overlay.rectTransform;
+                ort.anchorMin = new Vector2(0f, 1f);
+                ort.anchorMax = new Vector2(0f, 1f);
+                ort.pivot = new Vector2(0f, 1f);
+                ort.anchoredPosition = new Vector2(24f, -20f);
+                ort.sizeDelta = new Vector2(1100f, 260f);
+                overlay.alignment = TextAnchor.UpperLeft;
+                overlay.color = new Color(1f, 0.97f, 0.85f, 1f);
+
+                // Ayuda de camara (abajo a la derecha).
+                var hints = MakeText(canvasGo.transform, "Hints", font, 20, "");
+                var hrt = hints.rectTransform;
+                hrt.anchorMin = new Vector2(1f, 0f);
+                hrt.anchorMax = new Vector2(1f, 0f);
+                hrt.pivot = new Vector2(1f, 0f);
+                hrt.anchoredPosition = new Vector2(-24f, 20f);
+                hrt.sizeDelta = new Vector2(760f, 34f);
+                hints.alignment = TextAnchor.LowerRight;
+                hints.color = new Color(1f, 1f, 1f, 0.65f);
+
+                var bluePrefabs = new[]
+                    { units.warrior, units.lancer, units.archer, units.monk, units.mage };
+                var rocks = new[]
+                {
+                    LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock1.png"),
+                    LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock2.png"),
+                    LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock3.png"),
+                    LoadFirstSprite(TS + "Terrain/Decorations/Rocks/Rock4.png"),
+                };
+
+                // Una poblacion por clase, cada una con su bloque de arenas en
+                // una cuadricula de 2 columnas (un bloque son 8x5 arenas).
+                int classCount = AI.EvolutionTrainer.ClassNames.Length;
+                var trainers = new AI.ParallelTrainer[classCount];
+                var evolutions = new AI.EvolutionTrainer[classCount];
+                for (int c = 0; c < classCount; c++)
+                {
+                    var trainGo = new GameObject("Entrenamiento_" + AI.EvolutionTrainer.ClassNames[c]);
+                    var trainer = trainGo.AddComponent<AI.ParallelTrainer>();
+                    trainer.bluePrefabs = bluePrefabs;
+                    trainer.redPrefabs = units.enemies;
+                    trainer.obstacleSprites = rocks;
+                    trainer.blockOffset = new Vector2((c % 2) * 380f, -(c / 2) * 260f);
+
+                    var evo = trainGo.AddComponent<AI.EvolutionTrainer>();
+                    evo.trainClass = c;
+                    trainers[c] = trainer;
+                    evolutions[c] = evo;
+                }
+
+                var directorGo = new GameObject("Director");
+                var director = directorGo.AddComponent<AI.TrainingDirector>();
+                director.trainers = trainers;
+                director.evolutions = evolutions;
+                director.overlayText = overlay;
+                director.hintText = hints;
+
+                EditorSceneManager.SaveScene(scene, TrainingScenePath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log("[SceneBuilder] Escena de entrenamiento construida en " + TrainingScenePath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[SceneBuilder] FALLO (training): " + e);
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 throw;
             }
@@ -1818,5 +1919,6 @@ namespace TinyRpg.EditorTools
     {
         public const string ScenePathPublic = "Assets/Game/Scenes/Game.unity";
         public const string LabScenePathPublic = "Assets/Game/Scenes/Lab.unity";
+        public const string TrainingScenePathPublic = "Assets/Game/Scenes/Training.unity";
     }
 }

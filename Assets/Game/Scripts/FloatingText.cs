@@ -23,6 +23,7 @@ namespace TinyRpg
 
         public static FloatingText Spawn(Vector2 worldPos, string text, Color color)
         {
+            if (TrainingMode.Active) return null;
             var go = new GameObject("FloatingText");
             go.transform.position = worldPos;
 

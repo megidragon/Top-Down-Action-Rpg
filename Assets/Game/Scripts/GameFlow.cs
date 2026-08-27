@@ -286,7 +286,20 @@ namespace TinyRpg
                 if (ai != null)
                 {
                     ai.ApplyTier(Difficulty.AiTierFor(CurrentLevel));
-                    ai.ApplyBrain(Difficulty.PickBrain(CurrentLevel, ref elitesLeft, classIndex));
+
+                    // Campeon neuroevolucionado si su clase tiene uno entrenado
+                    // y toca por profundidad; si no, cerebro escrito a mano.
+                    var champion = AI.NeuralBrainLibrary.Champion(classIndex);
+                    if (champion != null
+                        && Random.value < Difficulty.NeuralChanceFor(CurrentLevel))
+                    {
+                        ai.ApplyNeuralBrain(champion);
+                        // Rastro para poder verificar la integracion en Play.
+                        Debug.Log($"[Neuro] Campeon {AI.EvolutionTrainer.ClassNames[classIndex]}"
+                                + $" desplegado en el nivel {CurrentLevel}");
+                    }
+                    else
+                        ai.ApplyBrain(Difficulty.PickBrain(CurrentLevel, ref elitesLeft, classIndex));
                 }
 
                 var enemyStats = enemy.GetComponent<CharacterStats>();
