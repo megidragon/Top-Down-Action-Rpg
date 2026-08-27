@@ -68,11 +68,16 @@ namespace TinyRpg
         }
 
         /// Desvanece el cadaver de un enemigo y suelta su moneda.
-        public static void HandleEnemyCorpse(GameObject enemy)
+        public static void HandleEnemyCorpse(GameObject enemy) => HandleCorpse(enemy, dropCoin: true);
+
+        /// Desvanece un cadaver; los enemigos ademas sueltan una moneda
+        /// (los aliados caidos no).
+        public static void HandleCorpse(GameObject unit, bool dropCoin)
         {
-            if (instance == null || enemy == null) return;
-            ItemPickup.Spawn(ItemType.Coin, (Vector2)enemy.transform.position + Vector2.up * 0.2f);
-            instance.StartCoroutine(instance.FadeOutAndDestroy(enemy));
+            if (instance == null || unit == null) return;
+            if (dropCoin)
+                ItemPickup.Spawn(ItemType.Coin, (Vector2)unit.transform.position + Vector2.up * 0.2f);
+            instance.StartCoroutine(instance.FadeOutAndDestroy(unit));
         }
 
         IEnumerator FadeOutAndDestroy(GameObject enemy)

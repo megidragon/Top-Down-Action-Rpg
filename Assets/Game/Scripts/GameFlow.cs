@@ -4,9 +4,11 @@ using UnityEngine.UI;
 
 namespace TinyRpg
 {
-    /// Orquestador del roguelike: ciudad -> niveles del bosque -> paradas de
-    /// descanso cada 3 niveles -> tesoro en el nivel 10. El jugador persiste
-    /// entre mapas dentro de la misma escena; morir termina la run (R recarga).
+    /// Orquestador del roguelike: ciudad -> niveles del bosque infinitos con
+    /// paradas de descanso cada 3 niveles. El tesoro del nivel 10 (y sus ecos
+    /// cada 10 niveles) es un hito con recompensa: la expedicion continua.
+    /// El jugador y sus aliados persisten entre mapas dentro de la misma
+    /// escena; morir termina la run (R recarga).
     public class GameFlow : MonoBehaviour
     {
         public static GameFlow Instance { get; private set; }
@@ -21,6 +23,7 @@ namespace TinyRpg
         LevelExit exit;
         int enemiesAlive;
         bool firstRestUsed;
+        int freeRecruitsGranted; // huecos de aliado ya regalados (niveles 6/12/18)
         string labelKey = "zone.town"; // rotulo actual (para refrescar al cambiar idioma)
         int labelArg;
 
@@ -41,6 +44,7 @@ namespace TinyRpg
 
         void Start()
         {
+            AllyAI.ResetOrders(); // las ordenes son estaticas: limpiar tras recargar
             LoadTown();
         }
 
@@ -62,9 +66,7 @@ namespace TinyRpg
             var data = ForestMaps.Level(level);
             LoadMap(data);
 
-            // Dificultad: 1 enemigo, +1 cada 3 niveles.
-            int enemyCount = 1 + (level - 1) / 3;
-            SpawnEnemies(data, enemyCount);
+            SpawnEnemies(data, Difficulty.EnemyCountFor(level));
             SetLevelLabel("zone.level", level);
 
             if (enemiesAlive <= 0) exit?.Activate(); // por si no hubo sitio
@@ -76,6 +78,49 @@ namespace TinyRpg
             LoadMap(ForestMaps.RestStop(4000 + CurrentLevel));
             exit?.Activate();
             SetLevelLabel("zone.camp");
+
+            // Reclutamiento de aliados: un hueco nuevo en los niveles 6/12/18
+            // (gratis la primera vez por hueco); los sustitutos de caidos se
+            // compran. Un reclutador por cada hueco vacio, clases sin repetir.
+            int unlocked = Difficulty.AllySlotsFor(CurrentLevel);
+            int deficit = unlocked - AllyAI.Active.Count;
+            var spots = new[]
+            {
+                new Vector2(13f, 4.9f), new Vector2(9.6f, 4.9f), new Vector2(16.4f, 4.9f),
+            };
+            var reservedClasses = new System.Collections.Generic.List<int>();
+            int freesPlanned = 0;
+            for (int i = 0; i < deficit && i < spots.Length; i++)
+            {
+                int classIdx = PickAllyClass(reservedClasses);
+                if (classIdx < 0) break;
+                reservedClasses.Add(classIdx);
+                int price = freeRecruitsGranted + freesPlanned < unlocked
+                    ? 0 : Difficulty.AllyReplacementPrice;
+                if (price == 0) freesPlanned++;
+                AllyRecruiter.Create(spots[i], content, classIdx, price);
+            }
+        }
+
+        /// Clase para el proximo recluta: distinta de la del jugador, de los
+        /// aliados vivos y de las ya reservadas. -1 si no queda ninguna libre.
+        int PickAllyClass(System.Collections.Generic.List<int> alsoTaken)
+        {
+            var taken = new System.Collections.Generic.List<int>(alsoTaken);
+            if (ClassSelectScreen.Instance != null)
+                taken.Add(ClassSelectScreen.Instance.ChosenClassIndex);
+            foreach (var ally in AllyAI.Active)
+                if (ally != null) taken.Add(ally.classIndex);
+
+            var candidates = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < 4; i++)
+                if (!taken.Contains(i)) candidates.Add(i);
+            return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : -1;
+        }
+
+        public void OnAllyRecruited(bool wasFree)
+        {
+            if (wasFree) freeRecruitsGranted++;
         }
 
         /// El jugador cruza la salida del mapa actual.
@@ -83,14 +128,21 @@ namespace TinyRpg
         {
             if (CurrentLevel == 0) { LoadLevel(1); return; }
             if (InRestStop) { LoadLevel(CurrentLevel + 1); return; }
-            if (CurrentLevel >= 10) return; // el 10 termina con el tesoro
             if (CurrentLevel % 3 == 0) LoadRestStop();
             else LoadLevel(CurrentLevel + 1);
         }
 
-        public void Victory()
+#if UNITY_EDITOR
+        /// Saltos directos para las capturas de verificacion (solo editor).
+        public void DebugLoadRest(int level) { CurrentLevel = level; LoadRestStop(); }
+        public void DebugLoadLevel(int level) { LoadLevel(level); }
+#endif
+
+        /// Hito del tesoro (nivel 10 y cada 10 niveles): recompensa y a seguir.
+        public void TreasureFound()
         {
-            GameManager.TriggerEnd(Loc.T("msg.victory"));
+            GameManager.Player?.GetComponent<Inventory>()?.AddCoins(Difficulty.TreasureReward);
+            Flash(string.Format(Loc.T("msg.treasure"), Difficulty.TreasureReward));
         }
 
         // ----------------------------------------------------------------
@@ -124,6 +176,18 @@ namespace TinyRpg
             {
                 player.transform.position = data.playerSpawn;
                 cam?.SnapToTarget();
+
+                // Los aliados viajan contigo: recolocarlos junto al spawn.
+                AllyAI.ResetOrders();
+                int slot = 0;
+                foreach (var ally in AllyAI.Active)
+                {
+                    if (ally == null) continue;
+                    float angle = 200f + slot * 55f;
+                    ally.transform.position = data.playerSpawn + new Vector2(
+                        Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad)) * 1.4f;
+                    slot++;
+                }
             }
             else
             {
@@ -192,13 +256,18 @@ namespace TinyRpg
                 placed++;
 
                 // Estadisticas del enemigo por nivel: los 3 primeros niveles son
-                // mas amables (3 en todo); despues, el valor base 5.
+                // mas amables (3 en todo); despues, base 5 mas los puntos extra
+                // de la espiral infinita (nivel 16+, +1 cada 2 niveles).
                 int statValue = CurrentLevel <= 3 ? 3 : 5;
+                var (bonusStr, bonusDef, bonusSpd) = Difficulty.StatBonusFor(CurrentLevel);
                 var attrs = enemy.AddComponent<CharacterAttributes>();
-                attrs.strength = statValue;
-                attrs.defense = statValue;
-                attrs.speed = statValue;
+                attrs.strength = statValue + bonusStr;
+                attrs.defense = statValue + bonusDef;
+                attrs.speed = statValue + bonusSpd;
                 enemy.GetComponent<CharacterMotor>()?.RefreshAttributesCache();
+
+                // Nivel de inteligencia de la IA segun la profundidad del bosque.
+                enemy.GetComponent<EnemyAI>()?.ApplyTier(Difficulty.AiTierFor(CurrentLevel));
 
                 var enemyStats = enemy.GetComponent<CharacterStats>();
                 var enemyGo = enemy;
@@ -218,10 +287,17 @@ namespace TinyRpg
             if (enemiesAlive <= 0)
             {
                 exit?.Activate();
+                AllyAI.ResetOrders(); // sin enemigos, los aliados vuelven a seguirte
                 // No pisar el mensaje de muerte/victoria con el aviso de nivel.
                 if (!GameManager.IsGameOver)
                     StartCoroutine(FlashMessage(Loc.T("msg.clean")));
             }
+        }
+
+        /// Mensaje breve en pantalla (no pisa muerte/victoria).
+        public void Flash(string text)
+        {
+            if (!GameManager.IsGameOver) StartCoroutine(FlashMessage(text));
         }
 
         IEnumerator FlashMessage(string text)

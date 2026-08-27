@@ -20,6 +20,7 @@ namespace TinyRpg
         public SmoothCameraFollow cameraFollow;
 
         public bool HasChosen { get; private set; }
+        public int ChosenClassIndex { get; private set; } = -1;
 
         void Awake()
         {
@@ -80,6 +81,7 @@ namespace TinyRpg
             if (prefab == null) return;
 
             HasChosen = true;
+            ChosenClassIndex = classIndex;
             var player = Instantiate(prefab, spawnPosition, Quaternion.identity);
             player.name = prefab.name;
 

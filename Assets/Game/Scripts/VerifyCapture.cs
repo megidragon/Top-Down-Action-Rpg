@@ -97,20 +97,98 @@ namespace TinyRpg
             // al jugador junto al enemigo para que haga aggro y ataque.
             GameFlow.Instance?.Advance();
             yield return new WaitForSecondsRealtime(0.8f);
-            var enemy = FindFirstObjectByType<EnemyAI>();
             var playerNow = GameManager.Player;
+
+            // 1) Forzar un ataque en el punto de aparicion (zona despejada, sin
+            //    arboles que tapen al sprite) para verificar la animacion
+            //    (frame de impacto ~0.15 s tras iniciarla).
+            var pc = playerNow != null ? playerNow.GetComponent<CharacterCombat>() : null;
+            pc?.OnPrimaryDown(Vector2.right);
+            yield return new WaitForSecondsRealtime(0.16f);
+            Capture("03_gameplay_a");
+
+            // 2) Colocar al jugador junto al enemigo para que haga aggro y
+            //    capturar combate real.
+            var enemy = FindFirstObjectByType<EnemyAI>();
             if (enemy != null && playerNow != null)
             {
                 playerNow.transform.position =
                     (Vector2)enemy.transform.position + new Vector2(3.2f, 0.5f);
                 Camera.main?.GetComponent<SmoothCameraFollow>()?.SnapToTarget();
             }
-            yield return new WaitForSecondsRealtime(2.7f);
-            Capture("03_gameplay_a");
             yield return new WaitForSecondsRealtime(2.5f);
             Capture("04_gameplay_b");
             yield return new WaitForSecondsRealtime(2f);
             Capture("05_gameplay_c");
+            yield return new WaitForSecondsRealtime(0.8f);
+
+            // --- Verificacion de aliados ---
+            // Campamento tras el nivel 6: debe aparecer el recluta gratis.
+            GameFlow.Instance?.DebugLoadRest(6);
+            yield return new WaitForSecondsRealtime(0.8f);
+
+            // Diagnostico de la fogata (llama invisible en capturas previas).
+            var campfire = FindFirstObjectByType<Campfire>();
+            var diag = new System.Text.StringBuilder();
+            if (campfire == null) diag.AppendLine("campfire: NO EXISTE");
+            else
+            {
+                var fireChild = campfire.transform.Find("Fire");
+                diag.AppendLine("campfire pos: " + campfire.transform.position);
+                if (fireChild == null) diag.AppendLine("fire child: NO EXISTE");
+                else
+                {
+                    var fsr = fireChild.GetComponent<SpriteRenderer>();
+                    var fan = fireChild.GetComponent<Animator>();
+                    diag.AppendLine("fire pos: " + fireChild.position
+                        + " activo: " + fireChild.gameObject.activeInHierarchy);
+                    diag.AppendLine("fire sprite: " + (fsr != null && fsr.sprite != null ? fsr.sprite.name : "NULL")
+                        + " order: " + (fsr != null ? fsr.sortingOrder.ToString() : "-")
+                        + " enabled: " + (fsr != null && fsr.enabled));
+                    diag.AppendLine("fire controller: " + (fan != null && fan.runtimeAnimatorController != null
+                        ? fan.runtimeAnimatorController.name : "NULL"));
+                }
+            }
+            var lib2 = MapLibrary.Instance;
+            diag.AppendLine("lib.fireSprite: " + (lib2 != null && lib2.fireSprite != null ? lib2.fireSprite.name : "NULL"));
+            diag.AppendLine("lib.fireController: " + (lib2 != null && lib2.fireController != null ? lib2.fireController.name : "NULL"));
+            File.WriteAllText("Library/tinyrpg_debug.txt", diag.ToString());
+            var recruiter = FindFirstObjectByType<AllyRecruiter>();
+            if (recruiter != null && GameManager.Player != null)
+            {
+                // Acercarse para ver la burbuja y reclutar via SendMessage.
+                GameManager.Player.transform.position =
+                    (Vector2)recruiter.transform.position + new Vector2(-1.6f, 0f);
+                Camera.main?.GetComponent<SmoothCameraFollow>()?.SnapToTarget();
+                yield return new WaitForSecondsRealtime(0.5f);
+                Capture("06_rest_recruiter");
+                // La captura se hace al FINAL del frame: esperar antes de mutar
+                // el estado o la imagen saldria con el estado nuevo.
+                yield return new WaitForSecondsRealtime(0.3f);
+                recruiter.SendMessage("TryRecruit", GameManager.Player);
+                yield return new WaitForSecondsRealtime(0.8f);
+                Capture("07_ally_recruited");
+                yield return new WaitForSecondsRealtime(0.3f);
+            }
+
+            // Nivel 7 (IA media) con el aliado en combate. Curar al jugador
+            // antes: llega tocado del combate escenificado y moriria.
+            GameFlow.Instance?.DebugLoadLevel(7);
+            yield return new WaitForSecondsRealtime(0.8f);
+            var playerStats = GameManager.Player != null
+                ? GameManager.Player.GetComponent<CharacterStats>() : null;
+            playerStats?.Heal(playerStats.maxHealth);
+            var foe = FindFirstObjectByType<EnemyAI>();
+            if (foe != null && GameManager.Player != null)
+            {
+                GameManager.Player.transform.position =
+                    (Vector2)foe.transform.position + new Vector2(3.0f, 0.4f);
+                Camera.main?.GetComponent<SmoothCameraFollow>()?.SnapToTarget();
+            }
+            yield return new WaitForSecondsRealtime(3f);
+            Capture("08_ally_combat_a");
+            yield return new WaitForSecondsRealtime(2.5f);
+            Capture("09_ally_combat_b");
             yield return new WaitForSecondsRealtime(0.8f);
 
             File.WriteAllText("Library/tinyrpg_verify_done.txt", "OK " + DateTime.Now.ToString("HH:mm:ss"));

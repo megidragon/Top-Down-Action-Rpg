@@ -66,12 +66,19 @@ namespace TinyRpg
             m.PatchEllipse(13f, 9f, 6.5f, 4.5f, 1); // claro calido de hierba clara
             m.PatchEllipse(13f, 9f, 2.3f, 1.7f, 4); // tierra quemada bajo la fogata
 
+            // Posiciones espaciadas: los radios de interaccion (2.2-2.4) no
+            // deben solaparse entre puestos o una E compraria en dos a la vez
+            // (InteractGate cubre el resto de casos).
             m.AddSpecial(SpecialKind.Campfire, 13f, 9f);
-            m.AddSpecial(SpecialKind.Vendor, 10f, 12.2f);
-            m.AddSpecial(SpecialKind.Vendor, 16f, 12.2f);
-            m.AddDecor(DecorKind.Stump, 11.2f, 6.8f);
-            m.AddDecor(DecorKind.Stump, 14.8f, 6.6f);
-            m.Scatter(DecorKind.Bush, 4, 5f, 4f, 21f, 14f, blocking: false);
+            m.AddSpecial(SpecialKind.Vendor, 9.8f, 12.6f);
+            m.AddSpecial(SpecialKind.Vendor, 16.2f, 12.6f);
+            m.AddSpecial(SpecialKind.Vendor, 6.6f, 8.6f);
+            m.AddSpecial(SpecialKind.Vendor, 19.4f, 8.6f);
+            m.AddDecor(DecorKind.Stump, 10.6f, 6.8f);
+            m.AddDecor(DecorKind.Stump, 15.4f, 6.6f);
+            // Solo en la mitad norte: el punto de reclutamiento (13, 5.4) y el
+            // paso del sur quedan despejados.
+            m.Scatter(DecorKind.Bush, 4, 5f, 9.5f, 21f, 14f, blocking: false);
             return m;
         }
 
@@ -80,6 +87,17 @@ namespace TinyRpg
         //  bosque: cerrados por arboles, con la salida al fondo.
         // ----------------------------------------------------------------
         public static MapBuildData Level(int level)
+        {
+            var m = LevelDesign(level);
+            // La espiral infinita pide mas enemigos que los 8-9 puntos base de
+            // cada diseno (9 en el nivel 55, 10 en el 65...): completar el pool.
+            int need = Difficulty.EnemyCountFor(level);
+            if (need > m.enemySpawns.Count)
+                m.FillEnemySpawns(need - m.enemySpawns.Count);
+            return m;
+        }
+
+        static MapBuildData LevelDesign(int level)
         {
             switch (((level - 1) % 10) + 1)
             {
@@ -245,11 +263,11 @@ namespace TinyRpg
             return m;
         }
 
-        // 10: la antesala del tesoro, en el corazon del bosque.
+        // 10: la antesala del tesoro, en el corazon del bosque. En la
+        // expedicion infinita el tesoro es un hito: el nivel conserva salida.
         static MapBuildData TreasureVault()
         {
             var m = Base(30, 22, 3110, out _);
-            m.exitLabel = "";
             m.PatchEllipse(15f, 12f, 6f, 4.2f, 3);
             for (int i = 0; i < 10; i++)
             {

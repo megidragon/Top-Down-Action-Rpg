@@ -157,8 +157,9 @@ namespace TinyRpg.EditorTools
             var (controller, sm) = NewController($"Monk_{color}_Player");
             var idle = AddState(sm, "Idle", FindClip($"Monk_Idle_{color}"), loop: true);
             AddState(sm, "Run", FindClip($"Monk_Run_{color}"), loop: true);
-            AddState(sm, "Attack1", FindClip($"Monk_Idle_{color}"), loop: false);
-            AddState(sm, "Attack2", FindClip($"Monk_Idle_{color}"), loop: false);
+            var kick = FindClip($"Monk_Kick_{color}") ?? FindClip($"Monk_Idle_{color}");
+            AddState(sm, "Attack1", kick, loop: false);
+            AddState(sm, "Attack2", kick, loop: false);
             AddState(sm, "Guard", FindClip($"Monk_Idle_{color}"), loop: true);
             AddState(sm, "Heal", FindClip($"Monk_Heal_{color}"), loop: false);
             sm.defaultState = idle;
@@ -262,6 +263,27 @@ namespace TinyRpg.EditorTools
             {
                 importer.textureType = TextureImporterType.Sprite;
                 importer.spritePixelsPerUnit = 256f;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        /// Sprite suelto generado por herramientas (PPU 64, filtro Point).
+        static Sprite LoadPixelSprite(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning("[SceneBuilder] Sprite no encontrado: " + path);
+                return null;
+            }
+            if (importer.textureType != TextureImporterType.Sprite ||
+                !Mathf.Approximately(importer.spritePixelsPerUnit, 64f) ||
+                importer.filterMode != FilterMode.Point)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spritePixelsPerUnit = 64f;
+                importer.filterMode = FilterMode.Point;
                 importer.SaveAndReimport();
             }
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
@@ -451,7 +473,7 @@ namespace TinyRpg.EditorTools
                 var sorter = root.AddComponent<YSorter>();
                 sorter.renderers = new[] { sr };
 
-                BuildWorldBars(root);
+                BuildWorldBars(root, isPlayer);
 
                 if (isPlayer)
                 {
@@ -474,10 +496,15 @@ namespace TinyRpg.EditorTools
             }
         }
 
-        static void BuildWorldBars(GameObject root)
+        static void BuildWorldBars(GameObject root, bool friendly)
         {
             var baseSprite = LoadFirstSprite(TS + "UI Elements/Bars/SmallBar_Base.png");
-            var fillSprite = LoadFirstSprite(TS + "UI Elements/Bars/SmallBar_Fill.png");
+            // Vida en verde claro para el bando del jugador (aliados incluidos,
+            // que se instancian desde los prefabs de jugador); rojo enemigo.
+            var fillSprite = friendly
+                ? (LoadPixelSprite("Assets/Game/Sprites/SmallBar_Fill_Green.png")
+                   ?? LoadFirstSprite(TS + "UI Elements/Bars/SmallBar_Fill.png"))
+                : LoadFirstSprite(TS + "UI Elements/Bars/SmallBar_Fill.png");
 
             var barsGo = new GameObject("Bars");
             barsGo.transform.SetParent(root.transform, false);
@@ -690,9 +717,22 @@ namespace TinyRpg.EditorTools
             lib.house2Sprite = LoadFirstSprite(TS + "Buildings/Blue Buildings/House2.png");
             lib.towerSprite = LoadFirstSprite(TS + "Buildings/Blue Buildings/Tower.png");
             lib.woodTableSprite = LoadFirstSprite(TS + "UI Elements/Wood Table/WoodTable.png");
-            lib.fireSprite = LoadFirstSprite(TS + "Particle FX/Fire_01.png");
-            lib.fireController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
-                TS + "Particle FX/Fire 1 Animation/Fire 1.controller");
+            // Llama en bucle propia: las hojas Fire_0x del pack son fogonazos
+            // que terminan en humo (frames casi vacios), no hogueras.
+            var fireClip = FindClip("Campfire_Loop");
+            if (fireClip != null)
+            {
+                lib.fireSprite = LoadFirstSprite("Assets/Game/Sprites/CampfireLoop.png");
+                var (fireCtrl, fireSm) = NewController("CampfireFire");
+                fireSm.defaultState = AddState(fireSm, "Burn", fireClip, loop: true);
+                lib.fireController = fireCtrl;
+            }
+            else
+            {
+                lib.fireSprite = LoadFirstSprite(TS + "Particle FX/Fire_01.png");
+                lib.fireController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                    TS + "Particle FX/Fire 1 Animation/Fire 1.controller");
+            }
 
             lib.enemyPrefabs = enemyPrefabs;
             lib.sheepPrefab = sheepPrefab;
@@ -768,7 +808,9 @@ namespace TinyRpg.EditorTools
             canvasGo.AddComponent<GraphicRaycaster>();
 
             var baseSprite = LoadFirstSprite(TS + "UI Elements/Bars/BigBar_Base.png");
-            var fillSprite = LoadFirstSprite(TS + "UI Elements/Bars/BigBar_Fill.png");
+            // Vida del jugador en verde claro (a juego con las barras de mundo).
+            var fillSprite = LoadPixelSprite("Assets/Game/Sprites/BigBar_Fill_Green.png")
+                ?? LoadFirstSprite(TS + "UI Elements/Bars/BigBar_Fill.png");
 
             var hud = canvasGo.AddComponent<PlayerHUD>();
             hud.healthFill = BuildHudBar(canvasGo.transform, "Health", baseSprite, fillSprite,

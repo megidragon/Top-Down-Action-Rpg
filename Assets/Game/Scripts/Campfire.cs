@@ -87,13 +87,24 @@ namespace TinyRpg
                 if (near)
                 {
                     var keyboard = Keyboard.current;
-                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame
+                        && InteractGate.TryConsume())
                     {
                         stats.Heal(stats.maxHealth);
                         player.GetComponent<UnitAnimator>()?.FlashHit(new Color(0.55f, 1f, 0.6f, 1f));
                         AttackVfx.SpawnArc(player.transform.position, Vector2.up, 1.1f, 180f,
                             new Color(1f, 0.75f, 0.35f, 0.5f),
                             YSorter.OrderForY(player.transform.position.y) + 5, 0.35f);
+
+                        // El descanso es del grupo entero: los aliados tambien
+                        // recuperan toda la vida (su unica fuente de curacion
+                        // fiable si no hay monje).
+                        foreach (var ally in AllyAI.Active)
+                        {
+                            if (ally == null || ally.Stats == null || ally.Stats.IsDead) continue;
+                            ally.Stats.Heal(ally.Stats.maxHealth);
+                            ally.GetComponent<UnitAnimator>()?.FlashHit(new Color(0.55f, 1f, 0.6f, 1f));
+                        }
                     }
                 }
             }

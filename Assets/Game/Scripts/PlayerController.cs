@@ -11,6 +11,10 @@ namespace TinyRpg
     [RequireComponent(typeof(CharacterStats))]
     public class PlayerController : MonoBehaviour
     {
+        /// true mientras AllyAI.Spawn instancia un prefab de jugador para
+        /// convertirlo en aliado: evita que ese Awake pise el registro global.
+        public static bool SpawningAlly;
+
         CharacterMotor motor;
         CharacterCombat combat;
         CharacterStats stats;
@@ -29,7 +33,7 @@ namespace TinyRpg
             inventory = GetComponent<Inventory>();
             combat.isPlayer = true;
             stats.team = 0;
-            GameManager.RegisterPlayer(this);
+            if (!SpawningAlly) GameManager.RegisterPlayer(this);
         }
 
         void Start()
@@ -85,6 +89,12 @@ namespace TinyRpg
 
             if (keyboard.spaceKey.wasPressedThisFrame)
                 combat.OnSpecial(AimDirection); // parry (o curacion, en el monje)
+
+            // --- Ordenes a los aliados: C atacar con todo, V huir ---
+            if (keyboard.cKey.wasPressedThisFrame)
+                AllyAI.IssueOrder(AllyAI.Order.Attack);
+            if (keyboard.vKey.wasPressedThisFrame)
+                AllyAI.IssueOrder(AllyAI.Order.Flee);
 
             // --- Inventario: teclas 1-4 usan el slot correspondiente ---
             if (inventory != null)

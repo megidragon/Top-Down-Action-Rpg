@@ -48,7 +48,8 @@ namespace TinyRpg
                 }
 
                 var keyboard = Keyboard.current;
-                if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+                if (keyboard != null && keyboard.eKey.wasPressedThisFrame
+                    && InteractGate.TryConsume())
                     TryBuy(player);
             }
 

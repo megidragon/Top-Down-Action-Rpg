@@ -46,10 +46,31 @@ namespace TinyRpg
         public override void OnSpecial(Vector2 aimDir)
         {
             if (IsBusy || motor.IsDashing || healCooldownTimer > 0f) return;
-            if (stats.Health >= stats.maxHealth) return; // no desperdiciar el rezo
+            // No desperdiciar el rezo: solo si alguien del equipo en el area
+            // (el propio monje incluido) tiene vida que recuperar.
+            if (!TeamNeedsHealing(1f)) return;
 
             healCooldownTimer = healCooldown;
             actionRoutine = StartCoroutine(HealRoutine());
+        }
+
+        /// true si el monje o algun companero de equipo dentro del radio de
+        /// curacion esta por debajo de la fraccion de vida dada.
+        public bool TeamNeedsHealing(float fraction)
+        {
+            if (stats.Health < stats.maxHealth * fraction) return true;
+
+            int count = Physics2D.OverlapCircle((Vector2)transform.position, healRadius,
+                new ContactFilter2D().NoFilter(), overlapBuffer);
+            for (int i = 0; i < count; i++)
+            {
+                var col = overlapBuffer[i];
+                if (col == null || col.attachedRigidbody == null) continue;
+                var ally = col.attachedRigidbody.GetComponent<CharacterStats>();
+                if (ally == null || ally.IsDead || ally.team != stats.team) continue;
+                if (ally.Health < ally.maxHealth * fraction) return true;
+            }
+            return false;
         }
 
         IEnumerator HealRoutine()

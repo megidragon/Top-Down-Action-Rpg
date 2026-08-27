@@ -1,17 +1,27 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TinyRpg
 {
-    /// IA agresiva con el mismo set de habilidades que el jugador:
-    /// patrulla alrededor de su campamento, persigue al jugador al detectarlo,
-    /// ataca con barrido/estocada, usa dash para cerrar distancia y puede
-    /// reaccionar con parry cuando el jugador inicia un ataque cerca.
+    /// IA enemiga con el mismo set de habilidades que el jugador:
+    /// patrulla alrededor de su campamento, persigue al rival mas cercano
+    /// (jugador o aliados) al detectarlo y ataca segun su clase.
+    ///
+    /// Tiene 3 niveles de inteligencia (tier), asignados por GameFlow segun el
+    /// nivel del bosque:
+    ///  0 = tonta (niveles 1-6): reacciona lento, poco aggro, sin dash ni
+    ///      parry, y solo usa el ataque basico de su clase.
+    ///  1 = media (7-12): reacciones y aggro intermedios, usa especiales a veces.
+    ///  2 = inteligente (13+): el comportamiento completo (kiting del arquero,
+    ///      curacion/embestida del monje, parry reactivo, dash).
     [RequireComponent(typeof(CharacterMotor))]
     [RequireComponent(typeof(CharacterCombat))]
     [RequireComponent(typeof(CharacterStats))]
     public class EnemyAI : MonoBehaviour
     {
+        public static readonly List<EnemyAI> Active = new List<EnemyAI>();
+
         public float aggroRange = 7f;
         public float leashRange = 16f;
         public float wanderRadius = 3.5f;
@@ -20,6 +30,10 @@ namespace TinyRpg
         public float preferredDistance = 1.2f;
         [Range(0f, 1f)] public float parryChance = 0.35f;
         [Range(0f, 1f)] public float dashChance = 0.3f;
+
+        public int tier = 2;              // 0 tonta, 1 media, 2 inteligente
+        float thinkInterval = 0.15f;      // reflejos: cada cuanto decide
+        float pauseScale = 1f;            // multiplicador de pausas entre ataques
 
         CharacterMotor motor;
         CharacterCombat combat;
@@ -30,6 +44,11 @@ namespace TinyRpg
         enum State { Patrol, Chase, Return }
         State state = State.Patrol;
 
+        // Un cadaver sigue ~1.5 s en Active mientras se desvanece: no cuenta.
+        public bool IsAggroed => state == State.Chase && stats != null && !stats.IsDead;
+
+        public CharacterStats Stats => stats;
+
         Vector2 home;
         Vector2 wanderTarget;
         float wanderTimer;
@@ -37,6 +56,10 @@ namespace TinyRpg
         float attackPauseTimer;   // pausa entre ataques para que el combate respire
         float parryReactionCooldown;
         bool subscribedToPlayer;
+
+        // Rival elegido en el ultimo Think (jugador o aliado, el mas cercano).
+        Transform foe;
+        CharacterStats foeStats;
 
         void Awake()
         {
@@ -49,14 +72,51 @@ namespace TinyRpg
             stats.Damaged += OnDamaged;
         }
 
+        void OnEnable() { Active.Add(this); }
+        void OnDisable() { Active.Remove(this); }
+
+        /// Configura los parametros del nivel de inteligencia. Llamar justo
+        /// despues de instanciar (antes del primer Update).
+        public void ApplyTier(int newTier)
+        {
+            tier = newTier;
+            switch (tier)
+            {
+                case 0:
+                    aggroRange = 5f;
+                    thinkInterval = 0.45f;
+                    pauseScale = 1.7f;
+                    parryChance = 0f;
+                    dashChance = 0f;
+                    break;
+                case 1:
+                    aggroRange = 6f;
+                    thinkInterval = 0.28f;
+                    pauseScale = 1.25f;
+                    parryChance = 0.15f;
+                    dashChance = 0.15f;
+                    break;
+                default:
+                    thinkInterval = 0.15f;
+                    pauseScale = 1f;
+                    break;
+            }
+            RefreshClassTuning();
+        }
+
+        void RefreshClassTuning()
+        {
+            // El arquero listo mantiene la distancia; el tonto camina hacia ti.
+            if (combat is ArcherCombat)
+                preferredDistance = tier == 2 ? 4.5f : tier == 1 ? 3f : 1.6f;
+        }
+
         void Start()
         {
             home = transform.position;
             wanderTarget = home;
             thinkTimer = Random.value * 0.2f;
-
-            // Ajustes por clase: el arquero mantiene la distancia (kiting).
-            if (combat is ArcherCombat) preferredDistance = 4.5f;
+            RefreshClassTuning();
         }
 
         void OnDestroy()
@@ -87,88 +147,160 @@ namespace TinyRpg
             thinkTimer -= Time.deltaTime;
             if (thinkTimer <= 0f)
             {
-                thinkTimer = 0.15f;
-                Think(player);
+                thinkTimer = thinkInterval;
+                Think();
             }
 
-            Steer(player);
+            Steer();
         }
 
-        void Think(PlayerController player)
+        /// Rival vivo (jugador o aliado) mas cercano.
+        void ResolveFoe()
         {
-            bool playerAlive = player != null && !player.GetComponent<CharacterStats>().IsDead;
-            float distToPlayer = playerAlive
-                ? Vector2.Distance(transform.position, player.transform.position) : float.MaxValue;
+            foe = null;
+            foeStats = null;
+            float best = float.MaxValue;
+
+            var player = GameManager.Player;
+            if (player != null)
+            {
+                var ps = player.GetComponent<CharacterStats>();
+                if (ps != null && !ps.IsDead)
+                {
+                    best = Vector2.Distance(transform.position, player.transform.position);
+                    foe = player.transform;
+                    foeStats = ps;
+                }
+            }
+
+            foreach (var ally in AllyAI.Active)
+            {
+                if (ally == null || ally.Stats == null || ally.Stats.IsDead) continue;
+                float d = Vector2.Distance(transform.position, ally.transform.position);
+                if (d < best)
+                {
+                    best = d;
+                    foe = ally.transform;
+                    foeStats = ally.Stats;
+                }
+            }
+        }
+
+        void Think()
+        {
+            ResolveFoe();
+            float distToFoe = foe != null
+                ? Vector2.Distance(transform.position, foe.position) : float.MaxValue;
             float distToHome = Vector2.Distance(transform.position, home);
 
             switch (state)
             {
                 case State.Patrol:
-                    // Solo hace aggro si ademas tiene linea de vision con el jugador.
-                    if (playerAlive && distToPlayer <= aggroRange && HasLineOfSight(player))
+                    // Solo hace aggro si ademas tiene linea de vision con el rival.
+                    if (foe != null && distToFoe <= aggroRange && HasLineOfSight(foe))
                         state = State.Chase;
                     break;
 
                 case State.Chase:
-                    if (!playerAlive || distToHome > leashRange || distToPlayer > aggroRange * 1.8f)
+                    if (foe == null || distToHome > leashRange || distToFoe > aggroRange * 1.8f)
                     {
                         state = State.Return;
                         break;
                     }
-                    TryCombatActions(player, distToPlayer);
+                    TryCombatActions(distToFoe);
                     break;
 
                 case State.Return:
                     // Histeresis: no re-aggro hasta estar de vuelta dentro del leash.
                     if (distToHome < 1.5f) state = State.Patrol;
-                    else if (playerAlive && distToPlayer <= aggroRange * 0.8f
-                             && distToHome < leashRange * 0.85f && HasLineOfSight(player))
+                    else if (foe != null && distToFoe <= aggroRange * 0.8f
+                             && distToHome < leashRange * 0.85f && HasLineOfSight(foe))
                         state = State.Chase;
                     break;
             }
         }
 
-        void TryCombatActions(PlayerController player, float dist)
+        void Pause(float min, float max)
+        {
+            attackPauseTimer = Random.Range(min, max) * pauseScale;
+        }
+
+        void TryCombatActions(float dist)
         {
             if (combat.IsBusy || motor.IsDashing || attackPauseTimer > 0f) return;
+            if (foe == null) return;
 
-            Vector2 playerPos = player.transform.position;
-            Vector2 aim = (playerPos - (Vector2)transform.position).normalized;
-            combat.AimPoint = playerPos; // las clases de area apuntan al jugador
+            Vector2 foePos = foe.position;
+            Vector2 aim = (foePos - (Vector2)transform.position).normalized;
+            combat.AimPoint = foePos; // las clases de area apuntan al rival
 
-            // --- Arquero enemigo: rafaga a media distancia, lluvia a larga ---
+            // --- Arquero enemigo ---
             if (combat is ArcherCombat)
             {
+                if (tier == 0)
+                {
+                    // Tonto: solo la lluvia de flechas, con calma y sin kitear.
+                    if (dist <= 9f && stats.Energy >= 25f)
+                    {
+                        combat.OnPrimaryDown(aim);
+                        StartCoroutine(ReleaseArtillery(foe));
+                        Pause(1.6f, 2.4f);
+                    }
+                    return;
+                }
+                if (tier == 1)
+                {
+                    // Medio: rafaga de cerca, lluvia a veces.
+                    if (dist <= 5f && stats.Energy >= 25f)
+                    {
+                        combat.OnSecondaryDown(aim);
+                        Pause(1.1f, 1.8f);
+                    }
+                    else if (dist <= 9f && stats.Energy >= 25f && Random.value < 0.5f)
+                    {
+                        combat.OnPrimaryDown(aim);
+                        StartCoroutine(ReleaseArtillery(foe));
+                        Pause(1.6f, 2.4f);
+                    }
+                    return;
+                }
+                // Inteligente: rafaga a media distancia, lluvia a larga.
                 if (dist <= 6f && stats.Energy >= 25f)
                 {
                     combat.OnSecondaryDown(aim);
-                    attackPauseTimer = Random.Range(1.1f, 1.8f);
+                    Pause(1.1f, 1.8f);
                 }
                 else if (dist <= 10f && stats.Energy >= 25f)
                 {
                     combat.OnPrimaryDown(aim);
-                    StartCoroutine(ReleaseArtillery(player));
-                    attackPauseTimer = Random.Range(1.6f, 2.4f);
+                    StartCoroutine(ReleaseArtillery(foe));
+                    Pause(1.6f, 2.4f);
                 }
                 return;
             }
 
-            // --- Monje enemigo: curarse herido, embestir de lejos, patear cerca ---
+            // --- Monje enemigo ---
             if (combat is MonkCombat)
             {
-                if (stats.Health < stats.maxHealth * 0.5f)
+                if (tier >= 1)
                 {
-                    combat.OnSpecial(aim); // curacion (cooldown interno de 5s)
+                    // El listo se cura antes; el medio solo al borde de la muerte.
+                    float healThreshold = tier == 2 ? 0.5f : 0.25f;
+                    if (stats.Health < stats.maxHealth * healThreshold)
+                        combat.OnSpecial(aim); // curacion (cooldown interno de 5s)
+
+                    float chargeChance = tier == 2 ? 0.6f : 0.4f;
+                    if (dist > 2.2f && dist <= 7f && stats.Energy >= 25f && Random.value < chargeChance)
+                    {
+                        combat.OnSecondaryDown(aim); // embestida hacia el rival
+                        Pause(0.8f, 1.4f);
+                        return;
+                    }
                 }
-                if (dist > 2.2f && dist <= 7f && stats.Energy >= 25f && Random.value < 0.6f)
-                {
-                    combat.OnSecondaryDown(aim); // embestida hacia el jugador
-                    attackPauseTimer = Random.Range(0.8f, 1.4f);
-                }
-                else if (dist <= 1.6f && stats.Energy >= 25f)
+                if (dist <= 1.6f && stats.Energy >= 25f)
                 {
                     combat.TrySweep(aim); // patada
-                    attackPauseTimer = Random.Range(0.5f, 1f);
+                    Pause(0.5f, 1f);
                 }
                 return;
             }
@@ -185,23 +317,23 @@ namespace TinyRpg
             {
                 if (Random.value < 0.7f) combat.TrySweep(aim);
                 else combat.TryStab(aim);
-                attackPauseTimer = Random.Range(0.5f, 1.1f);
+                Pause(0.5f, 1.1f);
             }
             else if (dist <= stabUseRange && stats.Energy >= 25f)
             {
                 combat.TryStab(aim);
-                attackPauseTimer = Random.Range(0.6f, 1.2f);
+                Pause(0.6f, 1.2f);
             }
         }
 
-        /// El arquero enemigo suelta la lluvia de flecha tras un breve apuntado
-        /// (el anillo fijado da al jugador medio segundo para esquivar).
-        IEnumerator ReleaseArtillery(PlayerController player)
+        /// El arquero enemigo suelta la lluvia de flechas tras un breve apuntado
+        /// (el anillo fijado da al rival medio segundo para esquivar).
+        IEnumerator ReleaseArtillery(Transform target)
         {
             yield return new WaitForSeconds(0.45f);
-            if (stats.IsDead || player == null) yield break;
-            combat.AimPoint = player.transform.position;
-            combat.OnPrimaryUp(((Vector2)player.transform.position - (Vector2)transform.position).normalized);
+            if (stats.IsDead || target == null) yield break;
+            combat.AimPoint = target.position;
+            combat.OnPrimaryUp(((Vector2)target.position - (Vector2)transform.position).normalized);
         }
 
         void OnPlayerAttackStarted(CharacterCombat playerCombat, CharacterCombat.AttackKind kind)
@@ -226,7 +358,7 @@ namespace TinyRpg
             combat.TryParry(dir);
         }
 
-        void Steer(PlayerController player)
+        void Steer()
         {
             if (combat.IsStaggered) { motor.SetMoveInput(Vector2.zero); return; }
 
@@ -250,11 +382,11 @@ namespace TinyRpg
                     break;
 
                 case State.Chase:
-                    if (player != null)
+                    if (foe != null)
                     {
-                        Vector2 toPlayer = (Vector2)player.transform.position - pos;
-                        float dist = toPlayer.magnitude;
-                        Vector2 dir = dist > 0.001f ? toPlayer / dist : Vector2.right;
+                        Vector2 toFoe = (Vector2)foe.position - pos;
+                        float dist = toFoe.magnitude;
+                        Vector2 dir = dist > 0.001f ? toFoe / dist : Vector2.right;
                         motor.AimDirection = dir; // los enemigos apuntan a donde miran
 
                         if (dist > preferredDistance) desired = dir;
@@ -327,11 +459,11 @@ namespace TinyRpg
             return false;
         }
 
-        bool HasLineOfSight(PlayerController player)
+        bool HasLineOfSight(Transform target)
         {
             return !CharacterCombat.BlockedByWall(
                 (Vector2)transform.position + Vector2.up * 0.45f,
-                (Vector2)player.transform.position + Vector2.up * 0.45f);
+                (Vector2)target.position + Vector2.up * 0.45f);
         }
     }
 }

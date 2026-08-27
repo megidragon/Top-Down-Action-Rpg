@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace TinyRpg
 {
-    /// El tesoro del corazon del bosque: pila de oro con un halo. Tocarlo gana
-    /// la run.
+    /// El tesoro del corazon del bosque: pila de oro con un halo. Tocarlo da
+    /// una recompensa de monedas; la expedicion infinita continua.
     public class TreasureTrigger : MonoBehaviour
     {
         bool consumed;
@@ -50,7 +50,8 @@ namespace TinyRpg
             if (Vector2.Distance(player.transform.position, transform.position) <= 1.1f)
             {
                 consumed = true;
-                GameFlow.Instance?.Victory();
+                GameFlow.Instance?.TreasureFound();
+                if (ring != null) Destroy(ring);
             }
         }
     }

@@ -52,8 +52,8 @@ namespace TinyRpg
 
             // HUD y juego
             ["hud.controls"] = (
-                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. especial  |  Espacio parry o curar  |  1-4 objetos  |  E interactuar",
-                "WASD move  |  Shift dash  |  Left click attack  |  Right click special  |  Space parry or heal  |  1-4 items  |  E interact"),
+                "WASD mover  |  Shift dash  |  Click Izq. atacar  |  Click Der. especial  |  Espacio parry o curar  |  1-4 objetos  |  E interactuar  |  C/V ordenes aliados",
+                "WASD move  |  Shift dash  |  Left click attack  |  Right click special  |  Space parry or heal  |  1-4 items  |  E interact  |  C/V ally orders"),
             ["zone.town"] = ("Ciudad", "Town"),
             ["zone.camp"] = ("Campamento", "Camp"),
             ["zone.level"] = ("Bosque - Nivel {0}", "Forest - Level {0}"),
@@ -68,6 +68,13 @@ namespace TinyRpg
                 "YOU FOUND THE FOREST TREASURE!\n\nThe legend was true.\nPress R for a new expedition"),
             ["hint.rest"] = ("[E] descansar", "[E] rest"),
             ["hint.buy"] = ("[E] comprar", "[E] buy"),
+            ["hint.recruit"] = ("[E] reclutar", "[E] recruit"),
+            ["ally.free"] = ("GRATIS", "FREE"),
+            ["msg.treasure"] = ("¡EL TESORO DEL BOSQUE ES TUYO! +{0} monedas\nLa leyenda era cierta... y el bosque continua.",
+                "THE FOREST TREASURE IS YOURS! +{0} coins\nThe legend was true... and the forest goes on."),
+            ["msg.ally.attack"] = ("¡Aliados: A POR ELLOS!", "Allies: ATTACK!"),
+            ["msg.ally.flee"] = ("¡Aliados: RETIRADA!", "Allies: RETREAT!"),
+            ["msg.ally.down"] = ("Tu aliado ha caido...", "Your ally has fallen..."),
 
             // Panel de estadisticas
             ["stats.health"] = ("Vida", "Health"),

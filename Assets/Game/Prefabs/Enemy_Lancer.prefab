@@ -502,6 +502,7 @@ MonoBehaviour:
   preferredDistance: 1.2
   parryChance: 0.35
   dashChance: 0.3
+  tier: 2
 --- !u!1 &6736770738296782552
 GameObject:
   m_ObjectHideFlags: 0

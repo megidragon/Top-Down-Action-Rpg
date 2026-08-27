@@ -5,7 +5,9 @@ namespace TinyRpg
 {
     /// Mercader de la parada de descanso: un puesto (mesa de madera + pawn) que
     /// vende UN item aleatorio. Pociones de 1/2/3 usos (1/3/6 monedas) o
-    /// elixires permanentes de fuerza/defensa/velocidad (4 monedas).
+    /// elixires permanentes de fuerza/defensa/velocidad (2 monedas antes del
+    /// nivel 6; despues +1 cada 3 niveles). Los elixires tambien suben la
+    /// estadistica de los aliados vivos.
     public class RestVendor : MonoBehaviour
     {
         public enum Offer
@@ -66,7 +68,9 @@ namespace TinyRpg
                 case Offer.PotionSmall: return 1;
                 case Offer.PotionMedium: return 3;
                 case Offer.PotionLarge: return 6;
-                default: return 4; // elixires
+                default: // elixires: precio segun la profundidad de la expedicion
+                    return Difficulty.ElixirPriceFor(GameFlow.Instance != null
+                        ? GameFlow.Instance.CurrentLevel : 1);
             }
         }
 
@@ -161,7 +165,8 @@ namespace TinyRpg
                 if (near)
                 {
                     var keyboard = Keyboard.current;
-                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+                    if (keyboard != null && keyboard.eKey.wasPressedThisFrame
+                        && InteractGate.TryConsume())
                         TryBuy(player);
                 }
             }
@@ -176,6 +181,25 @@ namespace TinyRpg
                     if (coinIcon != null) coinIcon.color = Color.white;
                     if (offerIcon != null) offerIcon.color = Color.white;
                 }
+            }
+        }
+
+        /// Aplica un elixir al jugador y a todos los aliados vivos (los aliados
+        /// ganan la misma estadistica cuando el jugador consume un elixir).
+        static void BuffParty(PlayerController player, System.Action<CharacterAttributes> buff)
+        {
+            var attrs = player.GetComponent<CharacterAttributes>();
+            if (attrs != null) buff(attrs);
+            player.GetComponent<CharacterMotor>()?.RefreshAttributesCache();
+
+            foreach (var ally in AllyAI.Active)
+            {
+                if (ally == null || ally.Stats == null || ally.Stats.IsDead) continue;
+                var allyAttrs = ally.GetComponent<CharacterAttributes>();
+                if (allyAttrs == null) continue;
+                buff(allyAttrs);
+                ally.GetComponent<CharacterMotor>()?.RefreshAttributesCache();
+                ally.GetComponent<UnitAnimator>()?.FlashHit(new Color(0.6f, 1f, 0.7f, 1f));
             }
         }
 
@@ -213,11 +237,11 @@ namespace TinyRpg
                 case Offer.PotionMedium: inventory.AddItem(ItemType.HealthPotion, 2); break;
                 case Offer.PotionLarge: inventory.AddItem(ItemType.HealthPotion, 3); break;
                 case Offer.ElixirStrength:
-                    player.GetComponent<CharacterAttributes>()?.AddStrength(1); break;
+                    BuffParty(player, a => a.AddStrength(1)); break;
                 case Offer.ElixirDefense:
-                    player.GetComponent<CharacterAttributes>()?.AddDefense(1); break;
+                    BuffParty(player, a => a.AddDefense(1)); break;
                 case Offer.ElixirSpeed:
-                    player.GetComponent<CharacterAttributes>()?.AddSpeed(1); break;
+                    BuffParty(player, a => a.AddSpeed(1)); break;
             }
 
             sold = true;
